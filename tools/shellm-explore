@@ -30,7 +30,7 @@ TRAJ_DIR="${SHELLM_TRAJ_DIR:-${TRAJ_DIR:-$_explore_home/trajectories}}"
 RUN_ID=""
 REPORT=0
 LIST_MODE=0
-REPORT_MODEL="${SHELLM_MODEL:-claude-opus-4-7}"
+REPORT_MODEL="${SHELLM_MODEL:-openrouter/free}"
 LIST_LIMIT=20
 SUMMARY_WIDTH=85
 
@@ -57,7 +57,7 @@ Options:
   -n N                Number of runs to list (default: 20, 0 for all)
   -w N                Truncate summaries to N characters (default: 85, 0 for no limit)
   --report            Generate an LLM-powered analysis of the run tree
-  --model MODEL       Model for report generation (default: $SHELLM_MODEL or claude-opus-4-7)
+  --model MODEL       Model for report generation (default: $SHELLM_MODEL or openrouter/free)
   -h, --help          Show this help
 
 Environment variables:

@@ -17,7 +17,7 @@ TRAJ_DIR="${TRAJ_DIR:-}"
 TRAJ_ID="${TRAJ_ID:-}"
 THINKERS_DIR="${THINKERS_DIR:-}"
 SHELLM_HOME="${SHELLM_HOME:-}"
-THINK_MODEL="${THINK_MODEL:-${SHELLM_MODEL:-claude-opus-4-7}}"
+THINK_MODEL="${THINK_MODEL:-${SHELLM_MODEL:-openrouter/free}}"
 THINK_CONTEXT_TAIL="${THINK_CONTEXT_TAIL:-30}"
 THINKERS_MAX_CONCURRENT="${THINKERS_MAX_CONCURRENT:-20}"
 # Liveness watchdog: a trigger_self thinker that has been free of running
@@ -1849,7 +1849,7 @@ source "\$SCRIPT_DIR/../_lib/common.sh"
 
 _require_env
 
-THINK_MODEL="\${THINK_MODEL:-\${SHELLM_MODEL:-claude-opus-4-7}}"
+THINK_MODEL="\${THINK_MODEL:-\${SHELLM_MODEL:-openrouter/free}}"
 
 # Read the triggering step from stdin
 step_json=\$(cat)

@@ -62,7 +62,7 @@ SUPABASE_DB_PASSWORD=$PW
 DATABASE_DSN=$DSN
 SERVICE_URL=$SERVICE_URL
 PRIVATE_DSN=$PRIVATE_DSN
-SHELLM_MODEL=anthropic/claude-sonnet-4.5
+SHELLM_MODEL=openrouter/free
 ENV
 printf 'headlong-web serving on http://127.0.0.1:8080\n' > "$HEADLONG_HOME/logs/web.log"
 printf 'init ok\n' > "$HEADLONG_HOME/logs/init.log"
@@ -81,13 +81,13 @@ ENV
 TJ=$(ls -d "$ID"/trajectories/*-root 2>/dev/null | head -1)
 [[ -n "$TJ" ]] || { TJ="$ID/trajectories/deadbeef-root"; mkdir -p "$TJ"; }
 cat >> "$TJ/trajectory.jsonl" <<ROWS
-{"type":"shellm-run","cmd":"shellm --var SHELLM_MODEL=anthropic/claude-sonnet-4.5 --var OPENROUTER_API_KEY=$KEY think","ts":"2026-08-21T14:00:00Z"}
+{"type":"shellm-run","cmd":"shellm --var SHELLM_MODEL=openrouter/free --var OPENROUTER_API_KEY=$KEY think","ts":"2026-08-21T14:00:00Z"}
 {"type":"shellm-run","cmd":"shellm --var OPENROUTER_API_KEY think","ts":"2026-08-21T15:00:00Z"}
 {"type":"shellm-run","cmd":"shellm --var GH_TOKEN=ghp_OTHERTOKEN0123456789abcdefghijkl --var PG_PASSWORD=correcthorsebatterystaple --var SHELLM_ENV=local run","ts":"2026-08-21T15:30:00Z"}
 {"type":"shellm-run","cmd":"shellm --var DATABASE_DSN=$DSN --var CURL_OPTS=--retry=2 run","ts":"2026-08-21T15:31:00Z"}
 {"type":"shellm-run","cmd":"shellm --var SERVICE_APIKEY=svc_compact_0123456789abcdef --var APIKEY=api_compact_0123456789abcdef --var ACCESSTOKEN=tok_compact_0123456789abcdef --var PGPASSWORD=correcthorsebatterystaple run","ts":"2026-08-21T15:32:00Z"}
 {"type":"shellm-run","cmd":"shellm --var DB_PASSWORD=correct horse battery staple run","ts":"2026-08-21T15:33:00Z"}
-{"type":"thought","content":"the model is anthropic/claude-sonnet-4.5 and all is well","ts":"2026-08-21T15:00:01Z"}
+{"type":"thought","content":"the model is openrouter/free and all is well","ts":"2026-08-21T15:00:01Z"}
 ROWS
 jq -nc --arg cmd 'shellm --var DB_PASSWORD=first"quote-secret-suffix --var SHELLM_ENV=local run' \
     '{type:"shellm-run",cmd:$cmd,ts:"2026-08-21T15:34:00Z"}' >> "$TJ/trajectory.jsonl"
@@ -120,7 +120,7 @@ check "top dir named headlong-bugreport-alpha-<stamp>" test -d "$TOP"
 check "report.txt present"                test -s "$TOP/report.txt"
 check "report: identity name"             grep -q '^identity: alpha$' "$TOP/report.txt"
 check "report: headlong commit line"      grep -q '^headlong commit: ' "$TOP/report.txt"
-check "report: model visible (not a secret)" grep -q '^SHELLM_MODEL=anthropic/claude-sonnet-4.5' "$TOP/report.txt"
+check "report: model visible (not a secret)" grep -q '^SHELLM_MODEL=openrouter/free' "$TOP/report.txt"
 check "report: env names listed, values hidden" grep -q '^OPENROUTER_API_KEY=<hidden>$' "$TOP/report.txt"
 check "report: status section"            grep -q '^mind: ' "$TOP/report.txt"
 check "report: trajectory row count"      grep -qE 'trajectory.jsonl: [0-9]+ rows' "$TOP/report.txt"
@@ -160,7 +160,7 @@ check "compact credential names are masked"   grep -q -- '--var SERVICE_APIKEY=<
 check "CURL_OPTS is not a URL false positive" grep -q -- '--var CURL_OPTS=--retry=2 run' "$TOP/identity/trajectories/$(basename "$TJ")/trajectory.jsonl"
 check_not "no dangling hint tails"            grep -q -- '<redacted> [^ ]*>' "$TOP/identity/trajectories/$(basename "$TJ")/trajectory.jsonl"
 check "bare --var KEY row untouched"          grep -q -- '--var OPENROUTER_API_KEY think' "$TOP/identity/trajectories/$(basename "$TJ")/trajectory.jsonl"
-check "non-secret --var value kept"           grep -q -- '--var SHELLM_MODEL=anthropic/claude-sonnet-4.5' "$TOP/identity/trajectories/$(basename "$TJ")/trajectory.jsonl"
+check "non-secret --var value kept"           grep -q -- '--var SHELLM_MODEL=openrouter/free' "$TOP/identity/trajectories/$(basename "$TJ")/trajectory.jsonl"
 check "thinker log key scrubbed (hint kept)"  grep -q 'OPENROUTER_API_KEY=<redacted sk-o...cdef>$' "$TOP/identity/run/logs/monolith.log"
 check "memory password scrubbed"              grep -q 'password is <redacted>' "$TOP/identity/memories/db.md"
 check "memory DSN literal scrubbed"           grep -q 'dsn is <redacted>' "$TOP/identity/memories/db.md"

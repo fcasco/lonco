@@ -381,7 +381,7 @@ _id_name=$(grep '^name=' "$_id_dir/info.txt" 2>/dev/null | cut -d= -f2-)
 
 # Read model defaults
 _id_model=$(grep '^think_model=' "$_id_dir/info.txt" 2>/dev/null | cut -d= -f2-)
-[[ -z "$_id_model" ]] && _id_model="${SHELLM_MODEL:-claude-opus-4-7}"
+[[ -z "$_id_model" ]] && _id_model="${SHELLM_MODEL:-openrouter/free}"
 _id_interval=$(grep '^interval=' "$_id_dir/info.txt" 2>/dev/null | cut -d= -f2-)
 [[ -z "$_id_interval" ]] && _id_interval="0"
 
@@ -1393,7 +1393,7 @@ $matches"
     # Read model defaults from info.txt
     local think_model think_tick_interval
     think_model=$(grep '^think_model=' "$identity_dir/info.txt" 2>/dev/null | cut -d= -f2-) || true
-    [[ -z "$think_model" ]] && think_model="${SHELLM_MODEL:-claude-opus-4-7}"
+    [[ -z "$think_model" ]] && think_model="${SHELLM_MODEL:-openrouter/free}"
     think_tick_interval=$(grep '^interval=' "$identity_dir/info.txt" 2>/dev/null | cut -d= -f2-) || true
     [[ -z "$think_tick_interval" ]] && think_tick_interval="0"
 

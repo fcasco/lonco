@@ -11,7 +11,7 @@
 # so call_llm must hand it back an empty response instead of dying on the
 # thinking text. A real failure — llm exiting non-zero — must still die.
 #
-# Live-provider check (2026-08-29, OpenRouter, claude-sonnet-5 and
+# Live-provider check (2026-08-29, OpenRouter, openrouter/free and
 # gpt-oss-120b): with the budget exhausted during reasoning, non-streaming
 # calls return exit 0 with empty stdout, so the retry is reachable. On
 # call_llm's actual streaming path it depends on whether any reasoning

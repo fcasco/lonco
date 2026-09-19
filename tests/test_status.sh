@@ -48,12 +48,12 @@ rm -rf "$APP/tui"
 ( cd "$APP" && HOME="$H" HEADLONG_HOME="$H/.headlong" PREFIX="$H/.local/bin" bash install.sh --symlinks --no-init >/dev/null 2>&1 ) || { bad "install"; exit 1; }
 ( cd "$APP" && HOME="$H" PATH="$APP/bin:$APP/tools:$PATH" identity new ada --default >/dev/null 2>&1 ) || { bad "identity new"; exit 1; }
 ln -s "$H/.local/bin/persona" "$H/.local/bin/ada"
-printf 'OPENROUTER_API_KEY=sk-or-v1-0123456789abcdef0123456789abcdef\nSHELLM_MODEL=anthropic/claude-sonnet-4.5\n' > "$H/.headlong/.env"
+printf 'OPENROUTER_API_KEY=sk-or-v1-0123456789abcdef0123456789abcdef\nSHELLM_MODEL=openrouter/free\n' > "$H/.headlong/.env"
 before=$(find "$H" -newer "$REPO/status.sh" -type f 2>/dev/null | wc -l)
 out=$(HOME="$H" HEADLONG_HOME="$H/.headlong" PREFIX="$H/.local/bin" bash "$REPO/status.sh" 2>&1); rc=$?
 check "install: exits 0"                     test "$rc" -eq 0
 check "install: checkout + commit"           grep -qE "checkout:   $APP   \(commit [0-9a-f]{7,}" <<<"$out"
-check "install: state home + key name only"  grep -q "state home: $H/.headlong   (.env has: OPENROUTER_API_KEY; model anthropic/claude-sonnet-4.5)" <<<"$out"
+check "install: state home + key name only"  grep -q "state home: $H/.headlong   (.env has: OPENROUTER_API_KEY; model openrouter/free)" <<<"$out"
 check_not "install: key value never printed" grep -q "sk-or-v1-0123" <<<"$out"
 check "install: tools count + agent command" grep -qE "tools:      [0-9]+ of [0-9]+ in $H/.local/bin; agent commands: ada" <<<"$out"
 check "install: identity line, mind stopped" grep -q "ada (default): mind stopped" <<<"$out"

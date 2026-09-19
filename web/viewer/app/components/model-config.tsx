@@ -57,16 +57,11 @@ const MODEL_KNOBS: { key: string; label: string; tip: string }[] = [
  * Custom. Provider is inferred from the name (see design/model-resolution.md). */
 const MODEL_OPTIONS: { group: string; models: string[] }[] = [
   {
-    group: "Anthropic (direct, needs ANTHROPIC_API_KEY)",
-    models: ["claude-opus-4-7", "claude-sonnet-4-5", "claude-haiku-4-5"],
-  },
-  {
     group: "OpenRouter (needs OPENROUTER_API_KEY)",
     models: [
+      "openrouter/free",
       "openai/gpt-oss-120b",
       "openai/gpt-oss-20b",
-      "anthropic/claude-sonnet-4.5",
-      "anthropic/claude-haiku-4.5",
       "google/gemini-2.5-flash",
       "moonshotai/kimi-k2",
     ],

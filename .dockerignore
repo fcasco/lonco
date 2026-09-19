@@ -1,0 +1,8 @@
+.env
+.env.example
+__pycache__
+*.pyc
+.venv
+node_modules
+web/viewer/build
+web/src/headlong_web/static

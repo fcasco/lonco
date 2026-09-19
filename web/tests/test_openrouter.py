@@ -17,8 +17,8 @@ RAW = {
             "pricing": {"prompt": "0.00000015", "completion": "0.0000006"},
         },
         {
-            "id": "anthropic/claude-sonnet-4.5",
-            "name": "Claude Sonnet 4.5",
+            "id": "openrouter/free",
+            "name": "OpenRouter Free",
             "context_length": 200000,
             "pricing": {"prompt": "not-a-number", "completion": None},
         },
@@ -53,7 +53,7 @@ def test_key_from_root_env_hits_user_endpoint(tmp_path: Path, monkeypatch):
     by_id = {m["id"]: m for m in payload["models"]}
     assert by_id["openai/gpt-oss-120b"]["prompt_usd_per_m"] == 0.15
     assert by_id["openai/gpt-oss-120b"]["completion_usd_per_m"] == 0.6
-    assert by_id["anthropic/claude-sonnet-4.5"]["prompt_usd_per_m"] is None
+    assert by_id["openrouter/free"]["prompt_usd_per_m"] is None
     # sorted by id
     assert [m["id"] for m in payload["models"]] == sorted(by_id)
 

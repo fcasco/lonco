@@ -55,23 +55,23 @@ SHELLM_CONF_DIR="${SHELLM_CONF_DIR:-$_shellm_home}"
 # ---------------------------------------------------------------------------
 
 # Default model: pick for whichever provider has an API key set, matching
-# llm's own fallback order. With no key at all, leave the Anthropic default
-# so llm's key error names the missing variable.
+# llm's own fallback order. With no key at all, leave the default so
+# llm's key error names the missing variable.
 if [[ -z "${SHELLM_MODEL:-}" ]]; then
     if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
-        SHELLM_MODEL="claude-opus-4-7"
+        SHELLM_MODEL="openrouter/free"
     elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
         SHELLM_MODEL="gpt-5.5"
     elif [[ -n "${GEMINI_API_KEY:-}" ]]; then
         SHELLM_MODEL="gemini-3.5-flash"
     elif [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
-        SHELLM_MODEL="anthropic/claude-sonnet-4.5"
+        SHELLM_MODEL="openrouter/free"
     elif [[ -n "${OPENCODE_API_KEY:-}" ]]; then
         # One env var covers both OpenCode plans; default to the Go
         # subscription (flat-rate). Zen models: SHELLM_MODEL=opencode/<model>.
         SHELLM_MODEL="opencode-go/deepseek-v4-flash"
     else
-        SHELLM_MODEL="claude-opus-4-7"
+        SHELLM_MODEL="openrouter/free"
     fi
 fi
 SHELLM_MAX_ITERATIONS="${SHELLM_MAX_ITERATIONS:-}"
@@ -279,7 +279,7 @@ Options:
   -v, --verbose        Verbose/debug mode
   -q, --quiet          Suppress all progress/streaming output (stderr), keep only final answer
   -h, --help           Show this help
-  -m, --model MODEL    Model to use (default: claude-opus-4-7)
+  -m, --model MODEL    Model to use (default: openrouter/free)
   --max-iterations N   Max loop iterations (default: unlimited)
   --max-tokens N       Max tokens per response (default: model's max output cap)
   --effort LEVEL       Thinking effort: low, medium, high, xhigh, max (default: high)
@@ -2082,12 +2082,12 @@ generate_run_summary() {
 
     # Summaries want a cheap model. Resolution: explicit SHELLM_SUMMARY_MODEL,
     # then the fast class (SHELLM_FAST_MODEL), then haiku when the run is on
-    # Anthropic, else stay on the run's own provider (a claude-* fallback
-    # would need an ANTHROPIC_API_KEY non-Anthropic deployments don't have).
+    # Some providers have a cheaper tier for the same family; stay on the
+    # run's own provider when none is configured.
     local summary_model="${SHELLM_SUMMARY_MODEL:-${SHELLM_FAST_MODEL:-}}"
     if [[ -z "$summary_model" ]]; then
         case "$SHELLM_MODEL" in
-            claude-*) summary_model="claude-haiku-4-5-20251001" ;;
+            claude-*) summary_model="openrouter/free" ;;
             *)        summary_model="$SHELLM_MODEL" ;;
         esac
     fi

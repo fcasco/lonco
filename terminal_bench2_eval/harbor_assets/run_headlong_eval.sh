@@ -12,7 +12,7 @@ uvx harbor run \
   --agent-import-path harbor_headlong_agent:HeadlongAgent \
   --environment-import-path harbor_headlong_environment:HeadlongDockerEnvironment \
   --dataset terminal-bench@2.0 \
-  --model anthropic/claude-opus-4-7 \
+  --model openrouter/free \
   --ak effort=max \
   --ak max_iterations=1000 \
   --ak docker_access=none \

@@ -30,7 +30,7 @@ set -euo pipefail
 #                    reviewer's brief and prioritized by the chair.
 #   --models CSV     Reviewer roster (OpenRouter slugs or anything bin/llm
 #                    accepts). Default: $PRC_MODELS or the built-in four.
-#   --chair MODEL    Synthesis model. Default: $PRC_CHAIR or claude-opus-5.
+#   --chair MODEL    Synthesis model. Default: $PRC_CHAIR or openrouter/free.
 #   --debate         Add the cross-examination round before synthesis.
 #   --out DIR        Run directory. Default: <state-home>/pr-committee/<run>
 #   --post           Post the final report as a PR comment (off by default).
@@ -42,10 +42,10 @@ set -euo pipefail
 #   PRC_MAX_FILE_BYTES    Per-file cap in the brief (default 60000)
 #   PRC_MAX_FILES_BYTES   Total full-file budget in the brief (default 250000)
 
-DEFAULT_MODELS="anthropic/claude-opus-5,openai/gpt-5.5,google/gemini-3.1-pro-preview,x-ai/grok-4.6"
+DEFAULT_MODELS="openrouter/free,openai/gpt-5.5,google/gemini-3.1-pro-preview,x-ai/grok-4.6"
 
 MODELS="${PRC_MODELS:-$DEFAULT_MODELS}"
-CHAIR="${PRC_CHAIR:-anthropic/claude-opus-5}"
+CHAIR="${PRC_CHAIR:-openrouter/free}"
 FOCUS=""
 DEBATE=0
 POST=0

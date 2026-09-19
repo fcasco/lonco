@@ -358,9 +358,9 @@ Environment:
                            (out_tok from bytes, estimated:true).
 
 Examples:
-  llm -m claude-sonnet-4-5-20250929 "explain quicksort"
+  llm -m openrouter/free "explain quicksort"
   echo "summarize this" | llm -m gpt-5
-  llm --thinking -m claude-opus-4-7 "solve this carefully"
+  llm --thinking -m openrouter/free "solve this carefully"
   llm --raw -m gemini-2.0-flash "return a JSON greeting"
   llm -m z-ai/glm-5.2 "explain quicksort"
   LLM_API_URL=http://localhost:11434/v1/chat/completions \
@@ -419,13 +419,13 @@ if [[ -z "$LLM_MODEL" ]]; then
     if [[ -n "${SHELLM_MODEL:-}" ]]; then
         LLM_MODEL="$SHELLM_MODEL"
     elif [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
-        LLM_MODEL="claude-sonnet-4-5-20250929"
+        LLM_MODEL="openrouter/free"
     elif [[ -n "${OPENAI_API_KEY:-}" ]]; then
         LLM_MODEL="gpt-5.5"
     elif [[ -n "${GEMINI_API_KEY:-}" ]]; then
         LLM_MODEL="gemini-3.5-flash"
     elif [[ -n "${OPENROUTER_API_KEY:-}" ]]; then
-        LLM_MODEL="anthropic/claude-sonnet-4.5"
+        LLM_MODEL="openrouter/free"
     elif [[ -n "${OPENCODE_API_KEY:-}" ]]; then
         # OPENCODE_API_KEY covers both OpenCode plans and can't disambiguate
         # them, so default to the flat-rate subscription; Zen models are one

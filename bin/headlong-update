@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Pull your fork's latest code into the checkout the container runs from,
+# without touching any identity/state files.
+#
+#   headlong-update            fetch + switch the app dir to origin/<branch>
+#   headlong-update --start    same, then re-link tools and run headlong-init
+#
+# State-safety: the app dir is a git checkout of the fork. All identity
+# state (.identities/, .env, memories, trajectories, logs) is untracked and
+# gitignored, so a hard reset of tracked files can never touch it. Never run
+# `git clean` here.
+set -uo pipefail
+
+APP="$(cd "$(dirname "$0")/.." && pwd)"
+BRANCH="${HEADLONG_UPDATE_BRANCH:-main}"
+MODE="${1:-update}"
+
+if [[ -d "$APP/.git" ]] && command -v git >/dev/null 2>&1; then
+    if git -C "$APP" fetch --quiet --prune origin "$BRANCH"; then
+        prev="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
+        git -C "$APP" reset --hard --quiet "origin/$BRANCH"
+        cur="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
+        if [[ "$prev" != "$cur" ]]; then
+            echo "headlong-update: $prev -> $cur (origin/$BRANCH)"
+            # Re-point the tool symlinks in case the fork added/renamed tools.
+            bash "$APP/install.sh" --symlinks
+            # Rebuild the dashboard if the web app changed.
+            web_changed=0
+            if git -C "$APP" diff --name-only "$prev..$cur" -- web/ | grep -q .; then
+                web_changed=1
+            fi
+            if [[ "$web_changed" -eq 1 ]] || \
+                    ! [[ -d "$APP/web/src/headlong_web/static" ]]; then
+                (cd "$APP/web" && uv sync --quiet --offline) 2>/dev/null \
+                    || (cd "$APP/web" && uv sync --quiet)
+                (cd "$APP" && command -v headlong-web >/dev/null 2>&1 \
+                    && headlong-web --build-only)
+            fi
+        else
+            echo "headlong-update: already at origin/$BRANCH ($cur)"
+        fi
+    else
+        echo "headlong-update: could not fetch origin (offline?) — keeping current code" >&2
+    fi
+else
+    echo "headlong-update: no git checkout at $APP — keeping the image's code" >&2
+fi
+
+if [[ "$MODE" == "--start" ]]; then
+    [[ -f "$APP/bin/headlong-init" ]] || export PATH="$APP/bin:$APP/tools:$PATH"
+    headlong-init
+fi

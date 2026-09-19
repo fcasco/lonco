@@ -76,7 +76,7 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
 # Root env sourced by web-launched thinkers (and llm/shellm run from here).
 # Use a DEDICATED, SPEND-CAPPED key: the agent executes arbitrary bash.
 ANTHROPIC_API_KEY=
-# SHELLM_MODEL=claude-opus-4-7
+# SHELLM_MODEL=openrouter/free
 ENV
     chmod 600 "$APP_DIR/.env"
 fi

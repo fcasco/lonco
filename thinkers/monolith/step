@@ -33,7 +33,7 @@ source "$SCRIPT_DIR/../_lib/common.sh"
 
 _require_env
 
-THINK_MODEL="${THINK_MODEL:-${SHELLM_MODEL:-claude-opus-4-7}}"
+THINK_MODEL="${THINK_MODEL:-${SHELLM_MODEL:-openrouter/free}}"
 THINK_CONTEXT_TAIL="${THINK_CONTEXT_TAIL:-20}"
 
 run_dir="$IDENTITY_DIR/workdir"

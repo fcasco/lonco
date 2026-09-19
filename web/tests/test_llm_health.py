@@ -182,7 +182,7 @@ def test_last_call_credit_failure_overrides_status(tmp_path: Path, monkeypatch):
             "ok": False,
             "ts": "2026-08-22T09:00:00Z",
             "provider": "openrouter",
-            "model": "anthropic/claude-sonnet-4.5",
+            "model": "openrouter/free",
             "kind": "credit",
             "http_code": 402,
             "message": "Insufficient credits. Add more using https://openrouter.ai/settings/credits",
