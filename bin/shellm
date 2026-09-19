@@ -436,6 +436,17 @@ extract_reasoning() {
             if (pre ~ /[^[:space:]]/) print pre
             exit
         }
+        # A reply that turns into a <tool_call> is the model invoking a tool,
+        # and its markup must not leak into the reasoning shown as thought
+        # (mirroring the code-fence rules above: a line-starting marker, or a
+        # marker appended to prose).
+        /^[[:space:]]*<(function|tool_call|parameter|invoke)[=>[:space:]]/ { exit }
+        match($0, /<(function|tool_call|parameter|invoke)[[:space:]>]*$/) {
+            pre = substr($0, 1, RSTART - 1)
+            sub(/[[:space:]]+$/, "", pre)
+            if (pre ~ /[^[:space:]]/) print pre
+            exit
+        }
         { print }
     '
 }
@@ -1705,6 +1716,106 @@ call_llm() {
 
 extract_code() {
     local response="$1"
+    local tool_call_code=""
+
+    # A reply in recursive-LM <tool_call> markup is the model invoking a tool,
+    # not writing prose. shellm's one tool is bash, so a call to the shellm
+    # tool with a `command` argument is the next executable block:
+    #   <tool_call>
+    #   shellm
+    #   <arg_key>command</arg_key>
+    #   <arg_value>ls -la</arg_value>
+    #   </tool_call>
+    # Without this, the whole reply (markup included) falls through to the
+    # no-fence fallback below, runs as a shell command, and fails "command not
+    # found" (RSS-reader turn, 2026-09-18). Parse the tag stream rather than
+    # lines: a value can span lines. Run the command of the first
+    # shellm/shell/bash call; the caller runs only the first block anyway.
+    tool_call_code=$(printf '%s\n' "$response" | awk '
+        function handle_text(t) {
+            if (t == "") return
+            if (in_value) { cur_val = cur_val t; return }
+            if (in_key) { cur_key = cur_key t; return }
+            if (in_call && tool == "") {
+                gsub(/^[[:space:]]+/, "", t)
+                split(t, _t, /[[:space:]]+/)
+                tool = _t[1]
+            }
+        }
+        function handle_tag(t) {
+            lt = tolower(t)
+            if (lt == "tool_call" || lt ~ /^tool_call[[:space:]]/) {
+                in_call = 1; tool = ""; in_key = 0; in_value = 0; cur_key = ""; cur_val = ""; cmd_val = ""
+                return
+            }
+            if (lt == "/tool_call") {
+                in_value = 0; in_key = 0
+                if ((tool == "shellm" || tool == "shell" || tool == "bash") && cmd_val != "") { print cmd_val; printed = 1 }
+                in_call = 0
+                return
+            }
+            if (!in_call) return
+            if (lt == "arg_key") { in_key = 1; in_value = 0; cur_key = ""; return }
+            if (lt == "/arg_key") {
+                gsub(/^[[:space:]]+/, "", cur_key); gsub(/[[:space:]]+$/, "", cur_key)
+                in_key = 0; return
+            }
+            if (lt == "arg_value") { in_value = 1; cur_val = ""; return }
+            if (lt == "/arg_value") {
+                in_value = 0
+                gsub(/^[[:space:]]+/, "", cur_val)
+                gsub(/[[:space:]]+$/, "", cur_val)
+                if (cur_val != "" && tolower(cur_key) == "command" && cmd_val == "") cmd_val = cur_val
+                cur_key = ""
+                return
+            }
+        }
+        BEGIN {
+            in_call = 0; in_key = 0; in_value = 0
+            tool = ""; cur_key = ""; cur_val = ""; cmd_val = ""; printed = 0
+        }
+        printed { next }
+        {
+            s = $0
+            while (s != "") {
+                li = index(s, "<")
+                if (li == 0) { handle_text(s); break }
+                if (li > 1) handle_text(substr(s, 1, li - 1))
+                s = substr(s, li + 1)
+                ri = index(s, ">")
+                if (ri == 0) { handle_text("<" s); break }
+                tag = substr(s, 1, ri - 1)
+                s = substr(s, ri + 1)
+                lt = tolower(tag)
+                if (lt == "tool_call" || lt ~ /^tool_call[[:space:]]/ \
+                    || lt == "/tool_call" || lt == "arg_key" || lt == "/arg_key" \
+                    || lt == "arg_value" || lt == "/arg_value") {
+                    handle_tag(tag)
+                } else {
+                    # a value can legally contain "<...>" (redirections,
+                    # heredocs, printf "<html>"): keep it verbatim
+                    handle_text("<" tag ">")
+                }
+            }
+            if (printed) exit
+            # A record boundary inside an open <arg_value> is a real newline
+            # in the command; add it back or multi-line commands collapse.
+            if (in_value) { cur_val = cur_val "\n" }
+        }
+    ')
+    if [[ -n "$tool_call_code" ]]; then
+        # Teach the model that its tool_call ran and how to end the run. The
+        # notice rides on stderr like the no-fence notice below, which the
+        # harness shows back to the model on its next turn.
+        local tcall_notice
+        tcall_notice=$(cat <<'NOTICE'
+printf '%s\n' '[shellm: your <tool_call> shellm command was executed directly. A trailing ```bash block does the same and is preferred. To END the run, set FINAL="your handoff" inside a block.]' >&2
+NOTICE
+)
+        code="$tcall_notice"$'\n'"$tool_call_code"
+        echo "$code"
+        return 0
+    fi
 
     # Extract the FIRST fenced code block (```bash, ```sh, or bare ```).
     # Heredoc-aware: lines like ``` inside an open heredoc do NOT close the
@@ -1812,13 +1923,29 @@ extract_code() {
     local no_fence=0
     if [[ -z "$code" ]]; then
         code=$(printf '%s\n' "$response" | sed '/^[[:space:]]*\[cmd\][[:space:]]*$/d; /^[[:space:]]*\[thought\]/d')
-        # A response with no bash block and real content is about to be run as
-        # a shell command. That is almost always the model ending its turn with
-        # a plain sentence (which fails "command not found") or forgetting the
-        # fence. On its own the model sees only the raw shell error, which does
-        # not explain the mechanism, so a weaker model repeats the sentence and
-        # stalls. Flag it so the notice below can say what actually happened.
-        [[ "$code" =~ [^[:space:]] ]] && no_fence=1
+        # A reply whose first line is tool-call markup for a tool shellm cannot
+        # run (an unknown tool, or a shellm call with no command argument) is a
+        # model trying to act, not prose. Do NOT run it as bash — the fallback
+        # below would execute the markup and die "command not found". Answer
+        # with the stderr notice alone so the model learns which tools exist.
+        local _first_line
+        _first_line=$(printf '%s\n' "$response" | grep -m1 -E '[^[:space:]]' || true)
+        if [[ -n "$_first_line" ]] && printf '%s\n' "$_first_line" | grep -qE '^[[:space:]]*<(function|tool_call|parameter|invoke)[=>[:space:]]'; then
+            local tcall_fallback_notice
+            tcall_fallback_notice=$(cat <<'NOTICE'
+printf '%s\n' '[shellm: your reply was tool-call markup, but not a call shellm can run. shellm has one tool: the "shellm" tool with a command argument — or a trailing ```bash block. Put the command in one of those and do not finish with bare prose.]' >&2
+NOTICE
+)
+            code="$tcall_fallback_notice"
+        else
+            # A response with no bash block and real content is about to be run as
+            # a shell command. That is almost always the model ending its turn with
+            # a plain sentence (which fails "command not found") or forgetting the
+            # fence. On its own the model sees only the raw shell error, which does
+            # not explain the mechanism, so a weaker model repeats the sentence and
+            # stalls. Flag it so the notice below can say what actually happened.
+            [[ "$code" =~ [^[:space:]] ]] && no_fence=1
+        fi
     fi
 
     # Prepend notices to stderr. Stderr is captured and shown back to the model
