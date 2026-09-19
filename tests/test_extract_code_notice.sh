@@ -61,6 +61,57 @@ echo hi
 \`\`\`")
 grep -q "$NOTICE" <<<"$out" && bad "an end-of-line fence must not get the notice" || ok "an end-of-line fence gets no notice"
 
+# ── <tool_call> markup (recursive-LM tool calls) ────────────────────────────
+# A reply in <tool_call> markup names the tool to invoke. shellm's one tool is
+# bash, so a `shellm` call with a `command` argument is executed directly.
+# Before this, the whole reply (markup and prose) fell through to the no-fence
+# fallback and ran as a shell command, failing "command not found".
+TC_NOTICE='your <tool_call> shellm command was executed directly'
+
+# Full tool_call reply (prose first, then the call): the command runs; the
+# prose and markup never get executed as bash.
+out=$(extract_code 'I will check this machine.
+<tool_call>
+shellm
+<arg_key>command</arg_key>
+<arg_value>which python3 curl jq 2>/dev/null</arg_value>
+</tool_call>')
+grep -q "$TC_NOTICE" <<<"$out" && ok "a <tool_call> shellm reply is recognized" || bad "tool_call recognition" "$out"
+grep -q 'which python3 curl jq 2>/dev/null' <<<"$out" && ok "the tool_call command is extracted to run" || bad "tool_call command extract" "$out"
+grep -q "$NOTICE" <<<"$out" && bad "a tool_call reply must not get the no-fence notice" || ok "a tool_call reply gets no no-fence notice"
+
+# Inline one-line tool_call with a multi-line command: newlines preserved.
+out=$(extract_code '<tool_call>shellm<arg_key>command</arg_key><arg_value>echo one
+echo two</arg_value></tool_call>')
+n=$(printf '%s\n' "$out" | grep -c '^echo ')
+[[ "$n" -eq 2 ]] && ok "a multi-line tool_call command keeps its newlines" || bad "multiline command" "$out"
+
+# A call to a tool shellm cannot run is not executed as bash; a stub notice
+# answers instead so the model learns which tools exist.
+out=$(extract_code '<tool_call>
+write_file
+<arg_key>path</arg_key>
+<arg_value>/tmp/x</arg_value>
+</tool_call>')
+grep -q 'not a call shellm can run' <<<"$out" && ok "a foreign-tool call gets a cannot-run notice" || bad "foreign tool notice" "$out"
+grep -q 'write_file' <<<"$out" && bad "foreign tool markup must not be run as bash" || ok "foreign tool markup is not executed"
+
+# ── extract_reasoning stops at tool-call markup ─────────────────────────────
+RN=$(mktemp)
+trap 'rm -f "$FN" "$RN"' EXIT
+sed -n '/^extract_reasoning() {/,/^}/p' "$REPO/bin/shellm" > "$RN"
+# shellcheck disable=SC1090
+source "$RN"
+
+th=$(extract_reasoning 'I will check the machine.
+<tool_call>
+shellm
+<arg_key>command</arg_key>
+<arg_value>x</arg_value>
+</tool_call>')
+grep -q 'I will check the machine\.' <<<"$th" && ok "reasoning keeps the prose before a tool_call" || bad "reasoning prose" "$th"
+grep -q 'tool_call\|arg_key\|arg_value' <<<"$th" && bad "reasoning must not include tool-call markup" || ok "reasoning excludes tool-call markup"
+
 echo
 echo "$pass passed, $fail failed"
 [[ $fail -eq 0 ]]
