@@ -32,7 +32,6 @@ grep -q '^ProtectSystem=strict$' <<< "$out" && ok "render: whole filesystem read
 grep -q "^ReadWritePaths=$HOME_DIR /tmp /var/tmp$" <<< "$out" && ok "render: home and temp dirs writable" || bad "render: home and temp dirs writable" "$out"
 grep -q "^ReadOnlyPaths=$APP$" <<< "$out" && ok "render: app checkout read-only" || bad "render: app checkout read-only"
 grep -q "^ReadWritePaths=$APP/.identities/%i$" <<< "$out" && ok "render: the identity directory writable (per instance)" || bad "render: identity dir writable"
-grep -q "^InaccessiblePaths=-$APP/.env.bridge$" <<< "$out" && ok "render: bridge tokens unreadable" || bad "render: bridge tokens unreadable"
 ! grep -q 'NoNewPrivileges' <<< "$out" && ok "render: sudo wrapper path left open (no NoNewPrivileges)" || bad "render: NoNewPrivileges must stay out (self-restart path)"
 [[ "$(sed -n '/^\[Service\]/,$p' <<< "$out" | grep -c '^\[')" -eq 1 ]] && ok "render: single [Service] section" || bad "render: single [Service] section"
 

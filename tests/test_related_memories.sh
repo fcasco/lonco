@@ -25,7 +25,7 @@ mk 2026-08-30-00-00-00_c4_intent    intention "2026-08-30 00:00:00" "" "Be a use
 mk 2026-08-31-00-00-00_c5_open      todo      "2026-08-31 00:00:00" "until: 2999-01-01
 " "Ping Braden about the temporal test"
 mk 2026-09-01-00-00-00_d4_gh        fact      "2026-09-01 00:00:00" "" "GitHub write for audel on this box: gh is logged in as headlong42, pull-only on laude-institute"
-mk 2026-09-02-00-00-00_e5_nick      person    "2026-09-02 00:00:00" "" "Nick Jalbert reaches audel via Slack #headlong-bot and DM"
+mk 2026-09-02-00-00-00_e5_nick      person    "2026-09-02 00:00:00" "" "Nick Jalbert reaches audel via Telegram and DM"
 mk 2026-08-01-00-00-00_f6_arch      fact      "2026-08-01 00:00:00" "" "audel cognitive architecture: monolith router, responder, thinkers list"
 mk 2026-09-04-00-00-00_g7_fresh     fact      "$(date -u +'%Y-%m-%d %H:%M:%S')" "" "GitHub pull request 108 review comments from Nick, just written"
 

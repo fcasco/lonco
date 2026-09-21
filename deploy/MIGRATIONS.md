@@ -117,9 +117,9 @@ against the rename.
 - Dispatcher cgroup matches what the guard greps for.
 - Dispatcher log shows a **clean** stop (`caught SIGTERM from a deliberate
   stop — exiting clean`). An unclean exit means `Restart=on-failure` and
-  the Slack death alert are about to fire.
+  the death alert are about to fire.
 - No alert fallback log (`/var/tmp/headlong-thinkers-alert.log`) — its
-  presence means a Slack post failed.
+  presence means an alert post failed.
 - Trajectory has a fresh step with a timestamp after the restart.
 - Drop-in values still applied.
 - Health endpoint ok, deployed commit is what you expect.
@@ -133,12 +133,12 @@ chat.
 
 ## Gotchas that cost time
 
-- `export SHELLM_TF_STACK=terraform-slack` before any `deploy/scripts/*`
+- `export SHELLM_TF_STACK=<stack>` before any `deploy/scripts/*`
   command. Without it `lib.sh` defaults to the `deploy/terraform` stack — a
   different instance — and you get `InvalidInstanceId`.
 - Run `deploy/scripts/*` from the repo root or use absolute paths.
 - Reconcile the box's own commits before deploying; the box repo carries
-  the agent's unreviewed work (`deploy/scripts/audel-commits reconcile`).
+  the agent's unreviewed work (`deploy/scripts/collab run` …).
   Check for collisions between incoming files and the box's dirty paths —
   a `--ff-only` pull only fails if they overlap.
 - Never read the mind log whole; tail only (800M+).

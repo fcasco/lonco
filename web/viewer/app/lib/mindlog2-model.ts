@@ -6,7 +6,6 @@
 // operator mind log and the presentation stream want opposite things.
 
 import type { NormalizedStep } from "~/lib/types";
-import { slackConversationUrl, slackSourceUrl } from "~/lib/source-links";
 
 export type CardKind = "thought" | "observation" | "outbound" | "inbound";
 
@@ -21,7 +20,6 @@ export interface Ml2Card {
   body: string;
   ts: string;
   step_id: string;
-  source_url: string | null;
 }
 
 function str(v: unknown): string {
@@ -33,7 +31,7 @@ function capitalize(name: string): string {
 }
 
 /** Best-effort person + channel from a chat `from`/`to` name. Bridge names
- * are routing-encoded (slack-U07AB…-C09…, telegram-8631…), so the person is
+ * are routing-encoded (telegram-8631…), so the person is
  * often unrecoverable client-side; we then name only the channel. */
 function party(name: string): { person: string | null; channel: string | null } {
   if (!name) return { person: null, channel: null };
@@ -42,8 +40,6 @@ function party(name: string): { person: string | null; channel: string | null } 
   const rest = dash > 0 ? name.slice(dash + 1) : "";
   const restIsName = /^[a-z]+$/i.test(rest);
   switch (prefix) {
-    case "slack":
-      return { person: null, channel: "Slack" };
     case "telegram":
       return { person: restIsName ? capitalize(rest) : null, channel: "Telegram" };
     case "pwa":
@@ -74,9 +70,7 @@ export function toCard(
   identityName: string
 ): Ml2Card | null {
   const raw = step.raw;
-  const sourceUrl =
-    slackSourceUrl(step.source_url) || slackSourceUrl(raw.source_url);
-  const base = { ts: step.ts, step_id: step.step_id, source_url: sourceUrl };
+  const base = { ts: step.ts, step_id: step.step_id };
   switch (step.type) {
     case "thought":
     case "tp-thought": {
@@ -102,7 +96,6 @@ export function toCard(
       const other = outbound ? to : from;
       return {
         ...base,
-        source_url: base.source_url || slackConversationUrl(other),
         kind: direction,
         group: "message",
         label: messageLabel(direction, other),

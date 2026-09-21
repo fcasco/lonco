@@ -105,7 +105,7 @@ The canonical list of step types. Families:
 | `observation` | thinker | `actor` | The actor recording a result to the mind log; carries `run_id` (written from inside the actor's run) |
 | `tp-thought` | thinker | thinkers scaffolded by `thinkers create` | Generic thinker output; carries `run_id` when written from inside a run |
 | `message` | conversation | `chat send` / `chat reply` / `chat send-file` | Carries `from`/`to`; file variant adds `filename` + `content_b64`; text files keep the body in `content`, binary files use a short marker |
-| `delivery` | conversation | a bridge (`slack-bridge`, `telegram-bridge`; the phone chat has no bridge and writes none) | Written back for every outbound `message` step the bridge handled; carries `trigger_step` (the message step), `to`, `transport`, `status` (`delivered`, `failed`, `skipped`), and on success `channel`/`message_ts`/`permalink`, on failure `reason`. Subscribed by no thinker; failed ones show in the monolith's recent stream; `chat sent` joins them to the sends via `deliveries.jsonl`. See design/outbound_delivery.md |
+| `delivery` | conversation | a bridge (`telegram-bridge`; the phone chat has no bridge and writes none) | Written back for every outbound `message` step the bridge handled; carries `trigger_step` (the message step), `to`, `transport`, `status` (`delivered`, `failed`, `skipped`), and on success `channel`/`message_ts`/`permalink`, on failure `reason`. Subscribed by no thinker; failed ones show in the monolith's recent stream; `chat sent` joins them to the sends via `deliveries.jsonl`. See design/outbound_delivery.md |
 | `human-msg` | conversation | *(legacy — nothing writes it)* | Still read by `chat repl` for old logs |
 | `agent-msg` | conversation | *(legacy — nothing writes it)* | Still read by `chat repl` for old logs |
 
@@ -392,7 +392,7 @@ A message between named parties (human or agent).
 {"type":"message", "content":"<message>", "from":"<sender>", "to":"<recipient>", "source":"chat"}
 ```
 
-The file-transfer variant (`chat send-file`) always adds `"filename"` plus `"content_b64"` (standard base64 of the file bytes). Text files also keep the file body in `"content"` so Slack and web chat still deliver those contents. Binary files use a short marker (`[file: name]`) because JSON `content` cannot hold raw bytes:
+The file-transfer variant (`chat send-file`) always adds `"filename"` plus `"content_b64"` (standard base64 of the file bytes). Text files also keep the file body in `"content"` so bridges and the web chat still deliver those contents. Binary files use a short marker (`[file: name]`) because JSON `content` cannot hold raw bytes:
 
 ```json
 {"type":"message", "content":"hello file", "filename":"note.txt", "content_b64":"<standard-base64>", "from":"<sender>", "to":"<recipient>", "source":"chat"}

@@ -17,7 +17,7 @@ Telegram <=(long-poll getUpdates)=> headlong-telegram-bridge
 The Telegram conversation is encoded into the chat `from` name, which the
 reply path returns as `to`, so the trajectory schema and the agent need no
 changes. The bridge is a pure client of the existing web API and
-trajectory format, the same design as the Slack bridge in `slack/`.
+trajectory format, following the shellm bridge lineage.
 
 Long polling is outbound only. Nothing listens on the network, which
 keeps the zero-ingress deploy design.
@@ -115,8 +115,8 @@ whenever `/etc/shellm/telegram.env` exists on the box.
 
 The env file does not survive an instance rebuild. After a rebuild,
 repeat step 3 and 4. `deploy/scripts/status` (which `rebuild` runs at
-the end) prints a loud `telegram: NOT SET UP` reminder on the slack
-stack whenever the env file is missing. To turn the bridge off, `sudo systemctl stop
+the end) prints a loud `telegram: NOT SET UP` reminder by default
+whenever the env file is missing. To turn the bridge off, `sudo systemctl stop
 headlong-telegram-bridge` mutes it without touching the agent, and
 removing `/etc/shellm/telegram.env` keeps it from coming back on the
 next deploy.
@@ -129,7 +129,7 @@ uv run --project telegram pytest telegram/tests
 
 ## Security notes
 
-The full comparison across the Slack, phone chat, and Telegram
+The full comparison across the phone chat and Telegram
 integrations is in `deploy/SECURITY.md`. The short version for this
 bridge is below.
 
@@ -148,8 +148,8 @@ bridge is below.
 - Prompt injection from approved senders is still possible. Anything an
   approved person sends, including pasted or forwarded text, goes
   straight into the agent's context. The mitigations are the same as for
-  Slack. The box is burnable, has no inbound network access, and holds a
-  spend-capped key and few secrets.
+  every connected channel. The box is burnable, has no inbound network
+  access, and holds a spend-capped key and few secrets.
 - Do not put the bot token in the agent's env for the `skills/telegram`
   skill. That skill lets the agent drive the Telegram API itself, which
   undoes the token isolation above. Use a separate bot and token if you

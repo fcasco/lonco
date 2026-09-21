@@ -7,8 +7,8 @@ tools live in [bin/](../bin/).
   first thoughts.
 - `identity` creates and manages identities, and `persona` talks to and
   manages an identity by name from anywhere.
-- `headlong-web` serves the dashboard, and `headlong-slack-bridge` and
-  `headlong-telegram-bridge` connect chat platforms into the mind.
+- `headlong-web` serves the dashboard, and `headlong-telegram-bridge`
+  connects a chat platform into the mind.
 - `shellm-docker-broker` is the host-side policy server for brokered
   Docker. It is never present in the mind's environment.
 - `headlong-skills` is the skills package manager (search, install, check,

@@ -15,18 +15,12 @@
 
 [Unit]
 Description=headlong thinkers for identity %i
-# No After=headlong-slack-agent.service: the bootstrap (a oneshot) starts this
-# unit from inside its own ExecStart, so that ordering edge deadlocked every
-# boot — the queued thinkers job waited on the agent finishing while the
-# agent blocked on the queued job (2026-08-12 and 2026-08-13 incidents).
-# Identity env doesn't need the edge anyway: thinkers-service.sh sources the
-# root .env, identity .env, and activate itself on every start.
 After=network-online.target
 Wants=network-online.target
 # With Restart=on-failure (below), OnFailure fires only once the start
 # limit is exhausted — it now means "died repeatedly, auto-restart GAVE UP,
 # staying down" (deploy/thinkers-failure-alert.sh). Per-death and
-# back-up-again Slack notices come from ExecStopPost/ExecStartPost
+# back-up-again notices come from ExecStopPost/ExecStartPost
 # (deploy/thinkers-death-alert.sh). Deliberate stops post nothing.
 OnFailure=headlong-thinkers-alert@%i.service
 StartLimitIntervalSec=900
@@ -48,8 +42,8 @@ ExecStop=/bin/bash @SHELLM_HOME@/app/deploy/thinkers-service.sh @SHELLM_HOME@/ap
 # (run/deliberate_stop) so the dispatcher's TERM trap exits 0 — a clean
 # exit systemd leaves alone. Only an UNSANCTIONED death (exit 130: crash,
 # or a stray signal like the unattributed 2026-08-12 16:56Z kill that
-# downed the mind for 3h) triggers the restart. Each such death posts to
-# Slack via ExecStopPost, the recovery via ExecStartPost; after 3 unclean
+# downed the mind for 3h) triggers the restart. Each such death posts an
+# alert via ExecStopPost, the recovery via ExecStartPost; after 3 unclean
 # deaths in 15 min systemd gives up and OnFailure posts the staying-down
 # alert.
 Restart=on-failure

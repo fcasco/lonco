@@ -23,7 +23,7 @@ Replying to incoming chat messages is NOT your job — a dedicated `responder` h
 
 ## How to write a message to a person
 
-Every message you send (`chat send`, `chat reply --follow-up`) is read by a person on the team, usually on Slack, and usually without your context. Write it for them.
+Every message you send (`chat send`, `chat reply --follow-up`) is read by a person on the team, via their chat client, and usually without your context. Write it for them.
 
 Say what you found first, in one or two plain sentences. Then the how and the evidence when the question was how something works or what happened, explained the way you would to a colleague who has not seen your run: say what a thing is before you use its name, use everyday words instead of internal names, and leave out step ids, run ids, file paths, hashes and raw command output unless they asked for them. Longer is fine when it buys understanding; padding is not. Say only what your run actually showed; if you did not verify something, say so instead of guessing.
 

@@ -51,7 +51,7 @@ fi
 
 # activate is written for interactive shells: its internal greps legitimately
 # fail, which is fatal under set -euo pipefail — relax the guards around the
-# source (same dance as deploy/bootstrap-slack-identity.sh).
+# source.
 set +eu
 set +o pipefail
 # shellcheck disable=SC1091
@@ -63,8 +63,8 @@ set -o pipefail
 case "$ACTION" in
     start)
         # Always stop first so the dispatcher runs with the environment THIS
-        # invocation sourced (see bootstrap-slack-identity.sh for the
-        # stale-env incident that made this unconditional). --self: service
+        # invocation sourced (the stale-env incident that made this
+        # unconditional). --self: service
         # scripts are authorized stop paths — the guard in `thinkers stop`
         # exists to block in-flight mind steps, not systemd, and ExecStop
         # runs inside the unit's own cgroup where the guard would trip.

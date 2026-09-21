@@ -3,11 +3,10 @@
 Boxes for outside collaborators who have no Laude AWS access. Each box is
 an isolated Headlong install with one login user who has passwordless
 sudo, reached over plain key-only SSH. Nothing of Laude's is on a box
-beyond the compute: no Slack tokens, no Cloudflare, no shared identity,
+beyond the compute: no Cloudflare, no shared identity,
 no path to Audel's box. Nick keeps a side door through SSM.
 
-It is a sibling of [`../terraform`](../terraform/README.md) (demo) and
-[`../terraform-slack`](../terraform-slack/README.md) (Audel), and much
+It is a sibling of [`../terraform`](../terraform/README.md) (demo), and
 smaller: AWS only, one `boxes` map, one instance and Elastic IP per
 entry. Provisioning on the box is the same `deploy/setup.sh` those stacks
 use, so the collaborator gets the dash on `127.0.0.1:8080`, the
@@ -110,8 +109,8 @@ box still just works, because a new entry renders its own user_data.
 ## What this stack does not do
 
 - No Cloudflare tunnel or Access. If a collaborator later needs a browser
-  dash without a port forward, add the tunnel the way `terraform-slack`
-  does; do not open 8080 in the security group.
-- No CloudWatch alarms and no Slack alerts. These boxes are not on call.
+  dash without a port forward, add the tunnel the way `../terraform` does;
+  do not open 8080 in the security group.
+- No CloudWatch alarms and no outbound alert posts. These boxes are not on call.
 - No backups. The identity export in the dash (Config, Export) is the way
   to save a mind before a box is removed.

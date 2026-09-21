@@ -25,7 +25,7 @@ def _msg(step_id: str, from_name: str, to_name: str, content: str, **extra) -> d
 
 @pytest.fixture
 def chat_identity(tmp_path: Path) -> Path:
-    """Identity whose mind log mixes a pwa conversation with slack traffic."""
+    """Identity whose mind log mixes a pwa conversation with other traffic."""
     identity = tmp_path / ".identities" / "chatty"
     identity.mkdir(parents=True)
     (identity / "info.txt").write_text(
@@ -37,14 +37,8 @@ def chat_identity(tmp_path: Path) -> Path:
         {"type": "trajectory", "step_id": ROOT_TRAJ, "ts": "t0"},
         _msg("m1", "pwa-nick", "chatty", "hello from phone"),
         _msg("m2", "chatty", "pwa-nick", "hi nick", reply_to="m1"),
-        _msg(
-            "m3",
-            "slack-U1-C1",
-            "chatty",
-            "slack says hi",
-            source_url="https://laudesters.slack.com/archives/C1/p1788451200123456",
-        ),
-        _msg("m4", "chatty", "slack-U1-C1", "hi slack", reply_to="m3"),
+        _msg("m3", "pwa-chatter", "chatty", "hello from another tab"),
+        _msg("m4", "chatty", "pwa-chatter", "hi back", reply_to="m3"),
         _msg("m5", "pwa-boss", "chatty", "boss checking in"),
         _msg("m6", "chatty", "pwa-boss", "hello boss", reply_to="m5"),
         _msg("m7", "pwa-nick", "chatty", "just an ack, thanks"),
@@ -67,10 +61,10 @@ def chat_identity(tmp_path: Path) -> Path:
             "ts": "to2",
         },
     ]
-    # Enough slack chatter that an unfiltered tail would push out the pwa
-    # conversation — proves the filter runs before the tail slice.
+    # Enough chatter from another name that an unfiltered tail would push
+    # out the pwa conversation — proves the filter runs before the tail slice.
     steps += [
-        _msg(f"s{i}", "slack-U1-C1", "chatty", f"noise {i}") for i in range(50)
+        _msg(f"s{i}", "pwa-chatter", "chatty", f"noise {i}") for i in range(50)
     ]
     (traj_dir / "trajectory.jsonl").write_text(
         "".join(json.dumps(s) + "\n" for s in steps)
@@ -86,7 +80,7 @@ def client(chat_identity: Path) -> TestClient:
 def test_chat_unfiltered_returns_all(client: TestClient):
     body = client.get("/api/identities/.identities~chatty/chat").json()
     froms = {m["from"] for m in body["messages"]}
-    assert {"pwa-nick", "pwa-boss", "slack-U1-C1", "chatty"} <= froms
+    assert {"pwa-nick", "pwa-boss", "pwa-chatter", "chatty"} <= froms
 
 
 def test_chat_with_filters_conversation(client: TestClient):
@@ -113,15 +107,6 @@ def test_chat_reply_to_surfaced(client: TestClient):
     by_id = {m["step_id"]: m for m in body["messages"]}
     assert by_id["m1"]["reply_to"] is None
     assert by_id["m2"]["reply_to"] == "m1"
-
-
-def test_chat_slack_source_url_is_inherited_by_reply(client: TestClient):
-    body = client.get("/api/identities/.identities~chatty/chat").json()
-    by_id = {m["step_id"]: m for m in body["messages"]}
-    expected = "https://laudesters.slack.com/archives/C1/p1788451200123456"
-    assert by_id["m3"]["source_url"] == expected
-    assert by_id["m4"]["source_url"] == expected
-    assert by_id["m1"]["source_url"] is None
 
 
 def test_chat_outcomes(client: TestClient):

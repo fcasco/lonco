@@ -130,7 +130,6 @@ export interface ChatMessage {
   content: string;
   reply_to: string | null;
   filename: string | null;
-  source_url: string | null;
 }
 
 export interface ChatLog {
@@ -439,7 +438,6 @@ export interface NormalizedStep {
   preview: string;
   raw: Record<string, unknown>;
   run_id: string | null;
-  source_url?: string | null;
   fork?: ForkLink;
   writeback?: WritebackLink;
 }

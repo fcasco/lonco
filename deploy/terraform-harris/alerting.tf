@@ -1,1 +1,0 @@
-../terraform-slack/alerting.tf

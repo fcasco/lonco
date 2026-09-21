@@ -48,7 +48,7 @@ msg_from=$(printf '%s' "$step_json" | jq -r '.from // "human"' 2>/dev/null) || t
 # Stale-trigger guard. A message step is dispatched within a second of being
 # appended, so a trigger stamped long ago is not a new message: it is history
 # re-fed by the dispatcher (2026-09-12: the trajectory file was rewritten,
-# `tail -F` replayed the whole log, and this step answered month-old Slack
+# `tail -F` replayed the whole log, and this step answered month-old
 # threads for 22 hours). Second line of defense behind the dispatcher's own
 # rewind guard. Deliberately no observation step: one would wake the monolith
 # per stale message, which is the flood this prevents. 0 disables; set it
@@ -144,9 +144,9 @@ if traj exists 2>/dev/null; then
     recent_context=$(_recent_stream "$THINK_CONTEXT_TAIL") || recent_context=""
 fi
 
-# The conversation: this person's messages with us over the last
+# the conversation: this person's messages with us over the last
 # RESPONDER_HISTORY_SINCE (7d), grouped by person key across every routing name
-# they use (Slack thread names, DM name, phone chat), read from the derived
+# they use (thread names, DM name, phone chat), read from the derived
 # message index via `chat history --with` (design/conversation_memory.md,
 # parts 1+2). Each of their messages is stamped with its age so the model can
 # tell "this morning" from "six days ago" (Experiment C found both new prompts
@@ -160,7 +160,7 @@ _age_jq='def age: ((now - ((.ts // "")[0:19] + "Z" | try fromdateiso8601 catch n
       elif $s < 5400 then "\(($s / 60) | floor) min ago"
       elif $s < 172800 then "\(($s / 3600) | floor) h ago"
       else "\(($s / 86400) | floor) days ago" end;'
-# Thread context: in a Slack channel thread other people talk too, and their
+# Thread context: in a channel thread other people talk too, and their
 # messages are the conversation the sender is replying into. Add the thread's
 # last RESPONDER_THREAD_SINCE (1d) of messages from anyone; the union is
 # de-duplicated by step id below. DMs, the phone chat and Telegram have no
@@ -415,7 +415,7 @@ $defer_para
 
 Not every message needs a reply. If their newest message is already answered
 (a reply of yours addressing it is visible above), is a bare acknowledgment
-like \"thanks\" or \"ok\", is a Slack reaction (a \`:emoji:\` body, optionally with \`(on <ts>)\`), or anything you could say would only repeat you,
+like \"thanks\" or \"ok\", is a reaction (a \`:emoji:\` body, optionally with \`(on <ts>)\`), or anything you could say would only repeat you,
 $noreply_rule Staying quiet is
 better than a duplicate or a contentless reply.
 
@@ -449,7 +449,7 @@ notes and drop what the conversation shows is stale. At most 12 short lines of
 plain text, no headers, no bullet syntax. Output only the notes.
 NOTES
 }
-_redact_keys() { sed -E 's/(sk|xox[abp]|ghp|gho|AKIA)[-_A-Za-z0-9]{12,}/[redacted]/g'; }
+_redact_keys() { sed -E 's/(sk|ghp|gho|AKIA)[-_A-Za-z0-9]{12,}/[redacted]/g'; }
 _update_person_notes() {
     local key="$1" person="$2" hist prev_body prev_file system user new_body
     local lockdir="${MEM_DIR:-/tmp}/.person-notes.lock"
@@ -597,8 +597,8 @@ fi
 #
 # 2026-09-15 23:58Z shape: the holding sentence glued in FRONT of the DEFER
 # on one line ("...your wake prompt.DEFER: Investigate ..."), so the line
-# started with prose, no DEFER line was found, and the whole thing went to
-# Slack. A DEFER: glued to a non-space character is split onto its own line
+# started with prose, no DEFER line was found, and the whole thing was sent.
+# A DEFER: glued to a non-space character is split onto its own line
 # first. A DEFER: after a space is left alone on purpose: that is the model
 # talking about the protocol ("the raw DEFER: handoff text"), not using it.
 reply=$(printf '%s\n' "$reply" | awk '{

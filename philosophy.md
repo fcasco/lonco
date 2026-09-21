@@ -183,7 +183,7 @@ ada stop / ada start # pause / resume its mind
 ada dash             # watch it think in the browser
 ```
 
-Everything the dispatcher wakes is a shellm run, so the agent thinks by writing bash all the way down. A thought that decides to act spawns a sub-run, the sub-run's trajectory forks from the mind log and merges back, and the agent can later read any of it with the same `traj` it writes with. The Slack and Telegram bridges inject messages into the same stream, so there is one mind no matter which channel you reach it through.
+Everything the dispatcher wakes is a shellm run, so the agent thinks by writing bash all the way down. A thought that decides to act spawns a sub-run, the sub-run's trajectory forks from the mind log and merges back, and the agent can later read any of it with the same `traj` it writes with. The Telegram bridge and the phone-chat PWA inject messages into the same stream, so there is one mind no matter which channel you reach it through.
 
 The result is an agent that can:
 

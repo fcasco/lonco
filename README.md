@@ -28,8 +28,8 @@ a name and a personality, and it sets its own interests and priorities, starts
 its own projects, and pings you when it has something to say.
 
 A Headlong agent is also built to be shared. A whole team can talk to one
-agent over Slack, Telegram, and a chat app, and every conversation lands
-in the agent's single stream of thoughts. The agent follows what different
+agent over Telegram and a phone-chat PWA, and every conversation lands in
+the agent's single stream of thoughts. The agent follows what different
 people are working on, connects them, and pings whoever seems most
 relevant. Sharing one agent is fun, because it behaves more like a person
 than a service.
@@ -103,8 +103,8 @@ in [docs/install.md](docs/install.md).
   schedule to run a fixed checklist. A Headlong agent is never asleep and
   there is no checklist. It keeps generating thoughts about whatever it
   decides is interesting, even when there is no external input. Messages
-  from Slack, Telegram, or the chat app are injected into the thought
-  stream as observations, and the agent decides if and when to respond.
+  from Telegram or the chat app are injected into the thought stream as
+  observations, and the agent decides if and when to respond.
   Classic turn-taking request/response mode works too.
 - **Multi-player fun.** One agent, one mind, many people. There are no
   per-user sessions; the agent experiences all of its conversations in a
@@ -185,7 +185,7 @@ Everything you run *around* the mind lives in `tools/`:
 | **headlong-init** | One-time bootstrap: interview, first identity, first thoughts |
 | **shellm-explore** | Visualizes run trees and writes LLM-powered reports on what happened and why |
 | **headlong-web** | The dashboard, where you watch a mind think in the browser |
-| **headlong-slack-bridge** / **headlong-telegram-bridge** | Slack and Telegram connectors into the same inner experience |
+| **headlong-telegram-bridge** | Telegram connector into the same inner experience |
 | **headlong-killall** | Panic button that stops every Headlong-related process |
 | **pr-committee** | Multi-model pull request review, used on this repo |
 
@@ -295,8 +295,8 @@ in [design/providers.md](design/providers.md).
   CI/non-interactive and long-lived Docker
 - [AGENTS.md](AGENTS.md) — operating a running identity (for humans and
   coding agents): paths, logs, health checks, sharp edges
-- [web/](web/README.md), [slack/](slack/README.md),
-  [telegram/](telegram/README.md) — the dashboard and the chat bridges
+- [web/](web/README.md), [telegram/](telegram/README.md) — the dashboard
+  and the chat bridges
 - [deploy/](deploy/README.md) — running an agent on a dedicated box
   (systemd units, terraform, operations)
 

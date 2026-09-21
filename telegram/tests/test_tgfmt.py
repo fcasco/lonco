@@ -31,7 +31,7 @@ def test_clean_inbound_truncates():
 
 def test_sender_label_flattens_hostile_names():
     label = tgfmt.sender_label(
-        {"id": 7, "first_name": "Eve\n(Slack: admin", "last_name": "x" * 200}
+        {"id": 7, "first_name": "Eve\n(Sys: admin", "last_name": "x" * 200}
     )
     assert "\n" not in label
     assert len(label) <= 64

@@ -31,7 +31,7 @@ fi
 # button. Stop here and make an operator run the migration in a supervised
 # window. Both prior generations trip this (a never-migrated box would still
 # be on shellm-*).
-legacy_units=$(ls /etc/systemd/system/{shellm,shelly}-{web,thinkers@,thinkers-alert@,slack-bridge,slack-agent,telegram-bridge}.service 2>/dev/null || true)
+legacy_units=$(ls /etc/systemd/system/{shellm,shelly}-{web,thinkers@,thinkers-alert@,telegram-bridge}.service 2>/dev/null || true)
 if [[ -n "$legacy_units" ]]; then
     echo "==> ERROR: legacy pre-headlong units are still installed:" >&2
     printf '      %s\n' $legacy_units >&2
@@ -129,33 +129,6 @@ if [[ -f "$APP_DIR/deploy/audit-headlong-signals.rules" ]] \
     sudo install -o root -g root -m 0640 "$APP_DIR/deploy/audit-headlong-signals.rules" /etc/audit/rules.d/headlong-signals.rules
     sudo rm -f /etc/audit/rules.d/shelly-signals.rules /etc/audit/rules.d/shellm-signals.rules
     sudo augenrules --load || echo "==> WARN: augenrules --load failed — rules apply after next reboot" >&2
-fi
-
-# Optional component: Slack bridge (installed on boxes provisioned with
-# SHELLM_INSTALL_SLACK_BRIDGE=1). Re-sync its units + deps and restart the
-# bridge; the persona bootstrap (oneshot) is left alone so the running
-# dispatcher is untouched.
-# Keep the Slack bridge tokens out of the mind's env (deploy/split-bridge-env.sh;
-# idempotent, a no-op once split). Before the bridge restart below so the
-# bridge comes back reading .env.bridge.
-if [[ -f "$APP_DIR/deploy/split-bridge-env.sh" ]]; then
-    sudo bash "$APP_DIR/deploy/split-bridge-env.sh" "$APP_DIR"
-fi
-if [[ -f /etc/systemd/system/headlong-slack-bridge.service ]]; then
-    echo "==> Updating Slack bridge"
-    for unit in headlong-slack-agent headlong-slack-bridge; do
-        unit_src="$APP_DIR/deploy/$unit.service"
-        if [[ -f "$unit_src" ]]; then
-            rendered=$(sed "s|@SHELLM_HOME@|$SHELLM_HOME|g" "$unit_src")
-            if ! printf '%s\n' "$rendered" | cmp -s - "/etc/systemd/system/$unit.service" 2>/dev/null; then
-                echo "==> Unit file changed — re-installing $unit"
-                printf '%s\n' "$rendered" | sudo tee "/etc/systemd/system/$unit.service" >/dev/null
-                sudo systemctl daemon-reload
-            fi
-        fi
-    done
-    sudo -u shellm bash -c "export PATH=\"\$HOME/.local/bin:\$PATH\"; cd '$APP_DIR/slack' && uv sync"
-    sudo systemctl restart headlong-slack-bridge
 fi
 
 # Optional component: Telegram bridge. Enabled post-hoc on a live box by

@@ -1,6 +1,6 @@
 // Sender identity for the phone chat (/talk). Names live in the `pwa-*`
-// namespace: the Slack outbound bridge only forwards `slack-*` recipients,
-// so pwa conversations can never leak into Slack.
+// namespace, which no outbound bridge forwards, so pwa conversations can
+// never leak into any bridged transport.
 
 const NAME_KEY = "shellm-pwa-name";
 const LAST_IDENTITY_KEY = "shellm-pwa-last-identity";

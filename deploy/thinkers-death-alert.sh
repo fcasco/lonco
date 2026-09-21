@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# deploy/thinkers-death-alert.sh — per-death and back-up Slack notices for
+# deploy/thinkers-death-alert.sh — per-death and back-up notices for
 # headlong-thinkers@<identity>.service. Companion to
 # deploy/thinkers-failure-alert.sh (which, with Restart=on-failure on the
 # unit, only fires when auto-restart gives up); this one fires on EVERY
@@ -40,30 +40,26 @@ if [[ -r "$APP_DIR/.env" ]]; then
     set +a
 fi
 
-# Framework var: HEADLONG_ first, legacy SHELLM_ fallback (the box .env still
-# carries the old name until it is rewritten).
-ALERT_CHANNEL="${HEADLONG_ALERT_CHANNEL:-${SHELLM_ALERT_CHANNEL:-}}"
-# Posting token: HEADLONG_ALERT_TOKEN (seeded by deploy/split-bridge-env.sh;
-# ideally a dedicated alert-only app). The bridge's own token is in
-# .env.bridge, which this script cannot read inside the thinkers sandbox.
-ALERT_TOKEN="${HEADLONG_ALERT_TOKEN:-${SLACK_BOT_TOKEN:-}}"
+# Webhook target: HEADLONG_ALERT_URL, with HEADLONG_ALERT_TOKEN sent as a
+# Bearer token when set (a webhook URL usually carries its own auth). The
+# box .env carries both (HEADLONG_ first, legacy SHELLM_ fallback).
+ALERT_URL="${HEADLONG_ALERT_URL:-${SHELLM_ALERT_URL:-}}"
+ALERT_TOKEN="${HEADLONG_ALERT_TOKEN:-${SHELLM_ALERT_TOKEN:-}}"
 
-post_slack() {
+post_alert() {
     local text="$1"
-    if [[ -z "$ALERT_TOKEN" || -z "$ALERT_CHANNEL" ]]; then
-        printf '%s [thinkers-death-alert] %s (%s); Slack not configured (need HEADLONG_ALERT_TOKEN + HEADLONG_ALERT_CHANNEL in %s/.env)\n' \
+    if [[ -z "$ALERT_URL" ]]; then
+        printf '%s [thinkers-death-alert] %s (%s); alert webhook not configured (need HEADLONG_ALERT_URL in %s/.env)\n' \
             "$(date -u +%FT%TZ)" "$unit" "$MODE" "$APP_DIR" >> "$FALLBACK_LOG"
         return 0
     fi
-    local payload resp
-    payload=$(jq -nc --arg ch "$ALERT_CHANNEL" --arg text "$text" \
-        '{channel: $ch, text: $text}')
-    resp=$(curl -sS -m 15 -X POST https://slack.com/api/chat.postMessage \
-        -H "Authorization: Bearer $ALERT_TOKEN" \
-        -H "Content-Type: application/json; charset=utf-8" \
-        --data "$payload" 2>&1 || true)
-    if ! printf '%s' "$resp" | jq -e '.ok == true' >/dev/null 2>&1; then
-        printf '%s [thinkers-death-alert] Slack post for %s (%s) failed: %s\n' \
+    local payload resp headers=(-H "Content-Type: application/json; charset=utf-8")
+    payload=$(jq -nc --arg text "$text" '{text: $text}')
+    [[ -n "$ALERT_TOKEN" ]] && headers+=(-H "Authorization: Bearer $ALERT_TOKEN")
+    resp=$(curl -sS -m 15 -X POST "$ALERT_URL" \
+        "${headers[@]}" --data "$payload" 2>&1 || true)
+    if [[ -n "$resp" && "$resp" != "ok" && "$resp" != '{"ok":true}' ]]; then
+        printf '%s [thinkers-death-alert] alert post for %s (%s) failed: %s\n' \
             "$(date -u +%FT%TZ)" "$unit" "$MODE" "$resp" >> "$FALLBACK_LOG"
     fi
 }
@@ -93,11 +89,10 @@ case "$MODE" in
 
         date +%s > "$RUN_DIR/down_since" 2>/dev/null || true
 
-        text=":skull_and_crossbones: *${unit} died* — result=${result}, exit=${EXIT_CODE:-?}/${EXIT_STATUS:-?}${sig:+, dispatcher trapped ${sig}}. Auto-restart in ~60s (gives up after 3 unclean deaths in 15 min).
-\`\`\`
-${log_tail}
-\`\`\`"
-        post_slack "$text"
+        text="${unit} DIED — result=${result}, exit=${EXIT_CODE:-?}/${EXIT_STATUS:-?}${sig:+, dispatcher trapped ${sig}}. Auto-restart in ~60s (gives up after 3 unclean deaths in 15 min).
+---
+${log_tail}"
+        post_alert "$text"
         ;;
     started)
         if [[ ! -f "$RUN_DIR/down_since" ]]; then
@@ -110,7 +105,7 @@ ${log_tail}
             secs=$(( $(date +%s) - down_since ))
             downtime="$(( secs / 60 ))m$(( secs % 60 ))s"
         fi
-        post_slack ":white_check_mark: *${unit} back up* — down ${downtime}. The wake note covers the gap; queued messages deliver now."
+        post_alert "${unit} back up — down ${downtime}. The wake note covers the gap; queued messages deliver now."
         ;;
     *)
         echo "error: unknown mode: $MODE (want died|started)" >&2

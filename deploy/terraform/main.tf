@@ -1,5 +1,6 @@
-# NOTE: deploy/terraform-slack is an intentional sibling copy of this stack
-# (see the header there). If you fix something here, fix it there too.
+# NOTE: this stack is the template the provisioning logic was first built
+# against; keep it self-contained. If a box needs different infrastructure,
+# do it as its own stack in deploy/.
 
 terraform {
   required_version = ">= 1.5"

@@ -77,8 +77,8 @@ Delete `bin/view`, `bin/put`, `bin/glob`, `bin/sub` and `bin/focus`. Split
 providers: what the mind needs stays in core, everything else lives in
 tools/.
 
-References to fix: the file-tools line in the shellm system prompt, the tool
-list in `deploy/slack-persona.md`, the tool arrays in
+References to fix: the file-tools line in the shellm system prompt, the
+tool arrays in
 `thinkers/_lib/common.sh` and `bin/thinkers`, the required list in
 `tests/test_thinker_tool_coupling.sh`, and `bin/README.md`.
 

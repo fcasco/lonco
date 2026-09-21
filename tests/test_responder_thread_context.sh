@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # tests/test_responder_thread_context.sh — the responder in a multi-person
-# Slack thread (design/conversation_memory.md, parts 1+2, thread context).
+# conversation (design/conversation_memory.md, parts 1+2).
 #
 # Usage: tests/test_responder_thread_context.sh
 #
-# Andy and Braden talk to the identity in one Slack thread. When Braden's
-# message triggers a reply, the prompt must carry Andy's messages from that
-# thread (as user turns, with the bridge header naming the speaker) alongside
-# Braden's own history, and the metrics must say how many came from the thread
-# alone. A DM trigger gets no thread context. Stubbed llm; no LLM calls.
+# Andy and Braden talk to the identity over Telegram. When Braden's message
+# triggers a reply, the prompt carries only Braden's own history (another
+# person's messages are not in it), and the metrics say how much of the
+# conversation the responder had: context_msgs from the person index, and
+# thread_msgs, which is always 0 because no transport produces channel
+# threads. A DM trigger gets the same person's history via the person key.
+# Stubbed llm; no LLM calls.
 
 set -uo pipefail
 unset IDENTITY_DIR IDENTITY_NAME MEM_DIR TRAJ_DIR TRAJ_ID ROOT_TRAJ_ID THINK_CONTEXT_TAIL 2>/dev/null
@@ -28,9 +30,9 @@ WORK=$(mktemp -d)
 trap 'cd /; rm -rf "$WORK"' EXIT
 
 ME=testid
-ANDY="slack-U0614H65RN3-C0BMVH6LM4K-1787508187.726149"
-BRADEN="slack-U095QV3JKA6-C0BMVH6LM4K-1787508187.726149"
-BRADEN_DM="slack-U095QV3JKA6-D0BN1QD7D2N"
+ANDY="telegram-8525624593-1111111111"
+BRADEN="telegram-8525624594-2222222222"
+BRADEN_DM="telegram-8525624594-3333333333"
 ID="$WORK/ident"
 TRAJ_ID="cafe0000-0000-0000-0000-0000000000f1"
 mkdir -p "$ID/memories" "$ID/trajectories/$TRAJ_ID" "$ID/run"
@@ -59,47 +61,47 @@ plog() { cat "$ID/run/logs/responder-prompts/"*"$1"* 2>/dev/null; }
 
 : > "$TRAJ"
 printf '{"step_id":"hdr","type":"trajectory","ts":"%s"}\n' "$(ago 99999)" >> "$TRAJ"
-msg a1 "$ANDY"   "$ME"   "(Slack: Andy Konwinski in #headlong-bot) can you paste the tweet into the channel?" 600
+msg a1 "$ANDY"   "$ME"   "(Telegram: Andy) can you paste the tweet into the channel?" 600
 msg r1 "$ME"     "$ANDY" "Sure, posting it now."                                                           590
-msg b0 "$BRADEN" "$ME"   "(Slack: Braden in #headlong-bot) unrelated: how was the eval run?"             300000   # 3.5 days ago, another thread would be different ts; same thread here
-msg b1 "$BRADEN" "$ME"   "(Slack: Braden in #headlong-bot) wait, which tweet?"                             +5
+msg b0 "$BRADEN" "$ME"   "unrelated: how was the eval run?"                                              300000
+msg b1 "$BRADEN" "$ME"   "wait, which tweet?"                                                             +5
 
-# --- 1. Braden's trigger sees Andy's thread messages -------------------------
+# --- 1. Braden's trigger sees only Braden's history ---------------------------
 printf 'The launch tweet Andy asked me to post.\n' > "$STUB_REPLY_FILE"
 run_step "$(grep -F '"step_id":"b1"' "$TRAJ")"
 obs=$(obs_for b1)
 ctx=$(printf '%s' "$obs" | jq -r .context_msgs); thr=$(printf '%s' "$obs" | jq -r .thread_msgs)
-if [[ "$ctx" == 3 && "$thr" == 2 ]]; then
-    ok "context_msgs 3 (Braden's own b0 + Andy's a1 + our r1), thread_msgs 2"
+if [[ "$ctx" == 1 && "$thr" == 0 ]]; then
+    ok "context_msgs 1 (Braden's own b0), thread_msgs 0 (no channel-thread transport)"
 else
-    bad "context_msgs 3, thread_msgs 2" "got context_msgs=$ctx thread_msgs=$thr"
+    bad "context_msgs 1, thread_msgs 0" "got context_msgs=$ctx thread_msgs=$thr"
 fi
-if plog b1 | grep -q 'Andy Konwinski in #headlong-bot) can you paste the tweet' && plog b1 | grep -q '"role":"assistant","content":"Sure, posting it now."'; then
-    ok "the prompt carries Andy's message as a user turn and our reply as an assistant turn"
+if ! plog b1 | grep -q 'can you paste the tweet' && ! plog b1 | grep -q 'Sure, posting it now'; then
+    ok "another person's messages are not in Braden's prompt"
 else
-    bad "the prompt carries Andy's message and our reply" "$(plog b1 | grep -o '"role":"[a-z]*","content":"[^"]\{0,50\}' | head -5 | tr '\n' ' ')"
+    bad "another person's messages are not in Braden's prompt" "$(plog b1 | grep -o '"role":"[a-z]*","content":"[^"]\{0,50\}' | head -5 | tr '\n' ' ')"
 fi
-plog b1 | grep -q 'you are answering slack-U095QV3JKA6' && ok "the system prompt says who is being answered" || bad "the system prompt says who is being answered"
+plog b1 | grep -q 'you are answering telegram-8525624594-2222222222' && ok "the system prompt says who is being answered" || bad "the system prompt says who is being answered"
 if plog b1 | jq -R 'fromjson? // empty' >/dev/null 2>&1; then :; fi
 last_user=$(plog b1 | sed -n '/^# messages/,$p' | sed 1d | jq -r '.[-1].content' 2>/dev/null)
 [[ "$last_user" == *"which tweet"* ]] && ok "the trigger is still the last turn" || bad "the trigger is still the last turn" "got '$last_user'"
-printf '%s' "$obs" | jq -e '.context_steps | index("a1") and index("r1") and index("b0")' >/dev/null && ok "context_steps lists the thread steps" || bad "context_steps lists the thread steps"
+printf '%s' "$obs" | jq -e '.context_steps | index("b0") and (index("a1") == null) and (index("r1") == null)' >/dev/null && ok "context_steps lists only Braden's steps" || bad "context_steps lists only Braden's steps"
 
-# --- 2. a DM trigger from Braden gets his history but no thread ------------
-msg d1 "$BRADEN_DM" "$ME" "(Slack: Braden DM) and the eval?" +10
+# --- 2. a DM trigger from Braden gets his history ----------------------------
+msg d1 "$BRADEN_DM" "$ME" "and the eval?" +10
 printf 'Still running.\n' > "$STUB_REPLY_FILE"
 run_step "$(grep -F '"step_id":"d1"' "$TRAJ")"
 obs=$(obs_for d1)
 ctx=$(printf '%s' "$obs" | jq -r .context_msgs); thr=$(printf '%s' "$obs" | jq -r .thread_msgs)
-if [[ "$thr" == 0 && "$ctx" -ge 3 ]]; then
-    ok "a DM gets Braden's cross-thread history (incl. our thread reply to him) and no thread context"
+if [[ "$thr" == 0 && "$ctx" == 3 ]]; then
+    ok "a DM gets the person's own history (b0, our reply, b1) and no thread context"
 else
     bad "a DM gets history but no thread context" "context_msgs=$ctx thread_msgs=$thr"
 fi
 if ! plog d1 | grep -q 'can you paste the tweet'; then
-    ok "Andy's thread message is not in Braden's DM prompt"
+    ok "Andy's messages are not in Braden's DM prompt"
 else
-    bad "Andy's thread message is not in Braden's DM prompt"
+    bad "Andy's messages are not in Braden's DM prompt"
 fi
 
 echo

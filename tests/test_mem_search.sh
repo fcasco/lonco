@@ -47,7 +47,7 @@ for i in $(seq -w 1 60); do
     mk "2026-08-01-00-00-$i" "Filler note $i" "The build ran and the tests passed on the box. Nothing else to report today."
 done
 mk "2026-08-20-00-00-01" "host-health checks" "The host-health probe checks disk, memory, and the dispatcher unit. Noah asked about it once."
-mk "2026-08-21-00-00-02" "Noah intro" "New Slack guest Noah Ziems joined the channel; Braden asked me to introduce myself."
+mk "2026-08-21-00-00-02" "Noah intro" "New Telegram guest Noah Ziems joined the channel; Braden asked me to introduce myself."
 mk "2026-08-22-00-00-03" "Noah reply" "Noah Ziems acked the RLM reply. Last word his; do not follow up."
 mk "2026-08-23-00-00-04" "recent unrelated" "A note about the weather on the box, which is always the same."
 

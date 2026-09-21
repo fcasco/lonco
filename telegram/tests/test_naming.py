@@ -31,13 +31,13 @@ def test_is_telegram_name():
     assert not naming.is_telegram_name("telegram-1")
     assert not naming.is_telegram_name("telegram-1-2-3")
     assert not naming.is_telegram_name("telegram--1--2")
-    assert not naming.is_telegram_name("slack-U1-D2")
+    assert not naming.is_telegram_name("pwa-andy")
     assert not naming.is_telegram_name(None)
     assert not naming.is_telegram_name(42)
 
 
 def test_decode_rejects_garbage():
     with pytest.raises(ValueError):
-        naming.decode("slack-U1-C2")
+        naming.decode("pwa-nick")
     with pytest.raises(ValueError):
         naming.decode("telegram-abc-def")

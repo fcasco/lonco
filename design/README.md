@@ -10,8 +10,9 @@ This directory also holds proposals such as
 [collegial-coding-agents.md](collegial-coding-agents.md) — coupling a
 Headlong identity with a coding agent in a collaborative (not adversarial)
 optimization loop.
-[peer_hearing.md](peer_hearing.md) describes how two personas hear each
-other on Slack and the guard that keeps them from looping.
+[conversation_memory.md](conversation_memory.md) describes how the
+responder keeps a person's history across every routing name
+(`telegram-*`, `pwa-*`, or a plain name) with no channel threads.
 When a document and the code disagree, the code wins.
 
 Reference documentation for users belongs in [docs/](../docs/).

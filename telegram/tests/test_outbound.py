@@ -385,7 +385,7 @@ def test_invalid_file_content_does_not_stop_later_replies(tmp_path, monkeypatch)
 
 
 
-def test_slack_reaction_step_is_not_posted(tmp_path, monkeypatch):
+def test_reaction_step_is_not_posted(tmp_path, monkeypatch):
     steps = [
         {"type": "message", "from": "audel", "to": "telegram-1-1",
          "source": "chat", "reaction": "thumbsup", "content": ":thumbsup:",
@@ -470,7 +470,7 @@ def test_unapproved_and_group_and_malformed_are_failed_notices(tmp_path, monkeyp
 
 def test_other_transports_get_no_notice(tmp_path, monkeypatch, notices):
     bot = Bot()
-    _drive(tmp_path, monkeypatch, [_msg("m1", "slack-U1-C1"), _msg("m2", "pwa-andy")], bot)
+    _drive(tmp_path, monkeypatch, [_msg("m1", "pwa-boss"), _msg("m2", "pwa-andy")], bot)
     assert bot.sent == [] and notices == []
 
 

@@ -16,7 +16,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from headlong_web.chat_links import resolve_source_url
 from headlong_web.env import getenv
 
 # Cap on the SOURCE bytes of raw step records kept parsed in memory, per
@@ -201,7 +200,6 @@ _CHAT_FIELDS = (
     "to",
     "reply_to",
     "filename",
-    "source_url",
 )
 
 
@@ -233,7 +231,6 @@ class _Normalizer:
         self._runs_by_id: dict[str, RunGroup] = {}
         self._unmatched_actions: list[dict[str, Any]] = []
         self._seen_step_ids: set[str] = set()
-        self._message_source_urls: dict[str, str] = {}
 
     def ingest(self, raw: dict[str, Any], span: tuple[int, int] | None = None) -> None:
         step_type = raw.get("type", "")
@@ -334,14 +331,6 @@ class _Normalizer:
                         run.ended_ts = ts
         elif step_type == "action":
             self._unmatched_actions.append(normalized)
-
-        # A reply points back to the inbound message it answers. Resolve its
-        # source link once here so every viewer gets the same exact Slack
-        # permalink, even after the raw records are evicted from memory.
-        if step_type in CHAT_MESSAGE_TYPES:
-            normalized["source_url"] = resolve_source_url(
-                raw, self._message_source_urls
-            )
 
         # Chat index: message steps whole (human-scale content), plus the
         # observation outcomes chat.py folds into typing indicators. Kept

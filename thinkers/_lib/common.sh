@@ -137,7 +137,7 @@ _runtime_line() {
     # the thinkers sandbox (deploy/thinkers-sandbox.sh) the checkout is a
     # read-only mount and the identity directory is the writable island. Said
     # every wake so the mind never has to rediscover it from an EROFS error
-    # (a Slack message saying so leaves the recent stream in fifteen minutes).
+    # (a message saying so leaves the recent stream in fifteen minutes).
     local boundary=""
     if [[ ! -w "$root/bin" ]]; then
         boundary=" The checkout at $root is read-only inside a wake: bin, thinkers, tools, deploy and .env cannot be edited in place, and no identity can be created beside yours; runtime changes go through your own clone and a pull request. Your identity directory${IDENTITY_DIR:+ ($IDENTITY_DIR)} is yours to write."
@@ -359,7 +359,7 @@ _mem_age() {
 # on topic per wake, none repeated across all eight, and for a pending PR
 # request the pick was the note saying the box's GitHub login is pull-only.
 # See design/related_memories.md.
-_RELATED_STOPWORDS='mind|pick|best|serves|right|now|special|signals|pending|request|responder|already|told|would|back|waiting|strongly|prefer|doing|work|timer|wake|inner|life|deliver|result|exactly|chat|reply|follow-up|reply-to|append|observation|field|resolves|filed|note|notes|path|workdir|research-portfolio|next|evidence|only|did|live|paper|type|content|source|monolith|final|step_id|run_id|true|false|null|https|http|com|github|slack|telegram|nick|audel'
+_RELATED_STOPWORDS='mind|pick|best|serves|right|now|special|signals|pending|request|responder|already|told|would|back|waiting|strongly|prefer|doing|work|timer|wake|inner|life|deliver|result|exactly|chat|reply|follow-up|reply-to|append|observation|field|resolves|filed|note|notes|path|workdir|research-portfolio|next|evidence|only|did|live|paper|type|content|source|monolith|final|step_id|run_id|true|false|null|https|http|com|github|telegram|nick|audel'
 _related_memories() {  # _related_memories <query> [prev-names, one per line] [n]
     local query="$1" prev="${2:-}" n="${3:-${MONOLITH_RELATED_MEMORIES:-3}}"
     (( n > 0 )) || return 0

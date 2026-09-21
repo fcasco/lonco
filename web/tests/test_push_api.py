@@ -52,7 +52,7 @@ def test_subscribe_upserts_by_endpoint(client: TestClient, push_root: Path):
 
 
 def test_subscribe_validation(client: TestClient):
-    bad_name = {"name": "slack-U1-C1", "subscription": SUB}
+    bad_name = {"name": "nick", "subscription": SUB}
     assert client.post("/api/push/subscriptions", json=bad_name).status_code == 422
     bad_sub = {"name": "pwa-nick", "subscription": {"endpoint": "http://not-tls"}}
     assert client.post("/api/push/subscriptions", json=bad_sub).status_code == 422
@@ -78,7 +78,7 @@ def test_notifications_for_matching():
     assert push.notifications_for(hit, subs) == subs
     for miss in [
         {"type": "thought", "to": "pwa-nick", "content": "x"},
-        {"type": "message", "to": "slack-U1-C1", "content": "x"},
+        {"type": "message", "to": "pwa-stranger", "content": "x"},
         {"type": "message", "to": "pwa-boss", "content": "x"},
         {"type": "message", "to": "pwa-nick", "content": ""},
     ]:

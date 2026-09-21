@@ -44,7 +44,7 @@ def to_html(text: str) -> str:
 def strip_leaked_command(text: str) -> str:
     """Drop a leading 'chat reply <name>' the model echoed into its reply.
 
-    Same bridge-side guard as the Slack bridge: a leak never reaches the
+    Same bridge-side guard as the other bridges: a leak never reaches the
     phone even if an agent-typed reply slips through.
     """
     return re.sub(r"^\s*chat reply [A-Za-z0-9._-]+\s*", "", text, count=1)

@@ -3,7 +3,7 @@
 #
 # Usage: tests/test_thinkers_silence_alert.sh
 #
-# Stubs curl on PATH to capture the Slack payload. A stale trajectory with a
+# Stubs curl on PATH to capture the webhook payload. A stale trajectory with a
 # live dispatcher pid posts one "gone quiet" alert and writes the marker; a
 # second tick posts nothing; a fresh trajectory posts the recovery and drops
 # the marker; a dead dispatcher pid or a deliberate stop posts nothing. Then
@@ -31,18 +31,22 @@ mkdir -p "$ID/trajectories/abcd1234-root" "$ID/run/logs" "$TMP/stub"
 printf 'name=quiet\ncreated=test\nroot_trajectory=abcd1234-ffff-0000-0000-000000000000\n' > "$ID/info.txt"
 TRAJ="$ID/trajectories/abcd1234-root/trajectory.jsonl"
 printf '{"type":"idle"}\n' > "$TRAJ"
-printf 'SLACK_BOT_TOKEN=xoxb-test\nHEADLONG_ALERT_CHANNEL=C0TEST\n' > "$APP/.env"
+printf 'HEADLONG_ALERT_URL=https://example.com/hooks/thinkers\nHEADLONG_ALERT_TOKEN=tok-test\n' > "$APP/.env"
 printf 'tick\n' > "$ID/run/logs/dispatcher.log"
 
-# curl stub: record the JSON payload, answer ok
+# curl stub: record the JSON payload and the Authorization header, answer ok
 cat > "$TMP/stub/curl" <<'STUB'
 #!/usr/bin/env bash
 prev=""
-for a in "$@"; do [[ "$prev" == "--data" ]] && printf '%s\n' "$a" >> "$CURL_LOG"; prev="$a"; done
+for a in "$@"; do
+    [[ "$prev" == "--data" ]] && printf '%s\n' "$a" >> "$CURL_LOG"
+    [[ "$prev" == "-H" ]] && printf '%s\n' "$a" >> "$CURL_AUTH"
+    prev="$a"
+done
 echo '{"ok":true}'
 STUB
 chmod +x "$TMP/stub/curl"
-export CURL_LOG="$TMP/curl.log"
+export CURL_LOG="$TMP/curl.log" CURL_AUTH="$TMP/curl-auth.log"
 
 run() { PATH="$TMP/stub:$PATH" HEADLONG_SILENCE_SECS=600 HEADLONG_ALERT_FALLBACK_LOG="$TMP/fallback.log" bash "$SCRIPT" "$APP" quiet; }
 posts() { if [[ -f "$CURL_LOG" ]]; then wc -l < "$CURL_LOG" | tr -d ' '; else echo 0; fi; }
@@ -57,7 +61,7 @@ run
 if [[ "$(posts)" -eq 1 ]] && grep -q 'has gone quiet' "$CURL_LOG"; then ok "stale trajectory posts the alert"
 else bad "stale trajectory posts the alert" "posts=$(posts) $(cat "$CURL_LOG" 2>/dev/null | head -c 200)"; fi
 [[ -f "$ID/run/silent_since" ]] && ok "marker written" || bad "marker written"
-grep -q 'C0TEST' "$CURL_LOG" && ok "posts to the alert channel" || bad "posts to the alert channel"
+grep -q '"text":' "$CURL_LOG" && grep -q 'Bearer tok-test' "$CURL_AUTH" && ok "payload is a JSON object with a text key; the token is sent as Bearer" || bad "payload is a JSON object with a text key; the token is sent as Bearer" "$(cat "$CURL_LOG" 2>/dev/null | head -c 200)"
 
 # 2. still stale → nothing more
 run
@@ -87,14 +91,14 @@ run
 [[ "$(posts)" -eq 2 ]] && ok "deliberate stop is not a silence" || bad "deliberate stop is not a silence"
 rm -f "$ID/run/deliberate_stop"
 
-# 7. no Slack config → fallback log line, no failure
+# 7. no alert config → fallback log line, no failure
 rm -f "$APP/.env" "$ID/run/silent_since"
 run; rc=$?
 [[ "$rc" -eq 0 && -f "$TMP/fallback.log" ]] && ok "missing config degrades to the fallback log" || bad "missing config degrades to the fallback log" "rc=$rc"
 
 # 8. still stale past the repost interval → posts again, as "still quiet"
-printf 'SLACK_BOT_TOKEN=xoxb-test\nHEADLONG_ALERT_CHANNEL=C0TEST\n' > "$APP/.env"
-rm -f "$ID/run/silent_since" "$TMP/fallback.log"; : > "$CURL_LOG"
+printf 'HEADLONG_ALERT_URL=https://example.com/hooks/thinkers\nHEADLONG_ALERT_TOKEN=tok-test\n' > "$APP/.env"
+rm -f "$ID/run/silent_since" "$TMP/fallback.log"; : > "$CURL_LOG"; : > "$CURL_AUTH"
 age_traj 1200
 run
 HEADLONG_SILENCE_REPOST_SECS=0 run
@@ -106,7 +110,7 @@ run
 # 9. run/ cannot take a byte (full disk stand-in: read-only dir) → the post
 #    still goes out and the marker lands in the tmpfs fallback; recovery
 #    finds it there.
-rm -f "$ID/run/silent_since"; : > "$CURL_LOG"
+rm -f "$ID/run/silent_since"; : > "$CURL_LOG"; : > "$CURL_AUTH"
 mkdir -p "$TMP/shm"
 if [[ "$(id -u)" -eq 0 ]]; then
     ok "skip: root can write a read-only dir"
@@ -135,7 +139,7 @@ STUB
 chmod +x "$TMP/dfstub/df"
 export DF_PCT="$TMP/df_pct"
 run_df() { PATH="$TMP/dfstub:$TMP/stub:$PATH" HEADLONG_SILENCE_SECS=600 HEADLONG_ALERT_FALLBACK_LOG="$TMP/fallback.log" bash "$SCRIPT" "$APP" quiet; }
-age_traj 10; : > "$CURL_LOG"
+age_traj 10; : > "$CURL_LOG"; : > "$CURL_AUTH"
 printf '95' > "$DF_PCT"; run_df
 if [[ "$(posts)" -eq 1 ]] && grep -q '95% full' "$CURL_LOG"; then ok "disk over the threshold posts the alert"
 else bad "disk over the threshold posts the alert" "posts=$(posts) $(cat "$CURL_LOG" 2>/dev/null | head -c 200)"; fi
