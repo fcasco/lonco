@@ -4,7 +4,7 @@ The trajectory is append-only JSONL; the bridge keeps a persisted byte
 offset so restarts neither replay old steps nor miss new ones. Only
 complete (newline-terminated) lines are consumed.
 
-Copied from headlong_slack.mindlog (the bridges are independent uv
+Copied from the shellm bridge lineage (the bridges are independent uv
 projects) — keep fixes in sync.
 """
 

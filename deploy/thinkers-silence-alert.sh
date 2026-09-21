@@ -2,7 +2,7 @@
 set -uo pipefail
 
 # deploy/thinkers-silence-alert.sh — "the mind has gone quiet" and "the disk
-# is filling" Slack notices for headlong-thinkers@<identity>.service. Run
+# is filling" notices for headlong-thinkers@<identity>.service. Run
 # every few minutes by headlong-thinkers-silence@<identity>.timer.
 #
 # The death and failure alerts fire when the dispatcher UNIT dies. This one
@@ -40,7 +40,7 @@ set -uo pipefail
 # because a full disk matters whether or not the mind is up. Recovery posts
 # when usage drops five points under the threshold.
 #
-# Missing Slack config degrades to a line in
+# Missing alert webhook config degrades to a line in
 # /var/tmp/headlong-thinkers-alert.log, never a unit failure.
 #
 # Usage: thinkers-silence-alert.sh APP_DIR IDENTITY
@@ -69,11 +69,11 @@ fi
 THRESHOLD="${HEADLONG_SILENCE_SECS:-1800}"
 REPOST="${HEADLONG_SILENCE_REPOST_SECS:-3600}"
 DISK_PCT="${HEADLONG_DISK_ALERT_PCT:-90}"
-ALERT_CHANNEL="${HEADLONG_ALERT_CHANNEL:-${SLACK_ALERT_CHANNEL:-${SHELLM_ALERT_CHANNEL:-}}}"
-# Posting token: HEADLONG_ALERT_TOKEN (seeded by deploy/split-bridge-env.sh;
-# ideally a dedicated alert-only app). The bridge's own token is in
-# .env.bridge, which this script cannot read inside the thinkers sandbox.
-ALERT_TOKEN="${HEADLONG_ALERT_TOKEN:-${SLACK_BOT_TOKEN:-}}"
+# Webhook target: HEADLONG_ALERT_URL, with HEADLONG_ALERT_TOKEN sent as a
+# Bearer token when set. The box .env carries both (HEADLONG_ first, legacy
+# SHELLM_ fallback).
+ALERT_URL="${HEADLONG_ALERT_URL:-${SHELLM_ALERT_URL:-}}"
+ALERT_TOKEN="${HEADLONG_ALERT_TOKEN:-${SHELLM_ALERT_TOKEN:-}}"
 
 now=$(date +%s)
 
@@ -82,21 +82,20 @@ log_fallback() {
 }
 
 # Never fails, never writes to disk before the network call.
-post_slack() {
+post_alert() {
     local text="$1"
-    if [[ -z "$ALERT_TOKEN" || -z "$ALERT_CHANNEL" ]]; then
-        log_fallback "$unit: $text; Slack not configured (need HEADLONG_ALERT_TOKEN + HEADLONG_ALERT_CHANNEL in $APP_DIR/.env)"
+    if [[ -z "$ALERT_URL" ]]; then
+        log_fallback "$unit: $text; alert webhook not configured (need HEADLONG_ALERT_URL in $APP_DIR/.env)"
         return 0
     fi
     local payload resp
-    payload=$(jq -nc --arg ch "$ALERT_CHANNEL" --arg text "$text" \
-        '{channel: $ch, text: $text}') || return 0
-    resp=$(curl -sS -m 15 -X POST https://slack.com/api/chat.postMessage \
-        -H "Authorization: Bearer $ALERT_TOKEN" \
-        -H "Content-Type: application/json; charset=utf-8" \
-        --data "$payload" 2>&1 || true)
-    if ! printf '%s' "$resp" | jq -e '.ok == true' >/dev/null 2>&1; then
-        log_fallback "Slack post for $unit failed: $resp"
+    payload=$(jq -nc --arg text "$text" '{text: $text}') || return 0
+    local headers=(-H "Content-Type: application/json; charset=utf-8")
+    [[ -n "$ALERT_TOKEN" ]] && headers+=(-H "Authorization: Bearer $ALERT_TOKEN")
+    resp=$(curl -sS -m 15 -X POST "$ALERT_URL" \
+        "${headers[@]}" --data "$payload" 2>&1 || true)
+    if [[ -n "$resp" && "$resp" != "ok" && "$resp" != '{"ok":true}' ]]; then
+        log_fallback "alert post for $unit failed: $resp"
     fi
     return 0
 }
@@ -160,11 +159,11 @@ disk_check() {
         due disk_alert || return 0
         local tmp_size
         tmp_size=$(du -sh "${TMPDIR:-/tmp}" 2>/dev/null | cut -f1 || true)
-        post_slack ":floppy_disk: *disk on ${IDENT}'s box is ${worst}% full* — ${worst_line% *} used. ${TMPDIR:-/tmp} holds ${tmp_size:-?}. At 100% the mind stops writing steps and every alert path with it (2026-09-17). Look for \`mktemp\` copies of the trajectory first: \`sudo find /tmp -maxdepth 1 -size +1G -ls\`."
+        post_alert "disk on ${IDENT}'s box is ${worst}% full — ${worst_line% *} used. ${TMPDIR:-/tmp} holds ${tmp_size:-?}. At 100% the mind stops writing steps and every alert path with it (2026-09-17). Look for \`mktemp\` copies of the trajectory first: \`sudo find /tmp -maxdepth 1 -size +1G -ls\`."
         mark disk_alert "$worst"
     elif find_marker disk_alert >/dev/null && (( worst < DISK_PCT - 5 )); then
         unmark disk_alert
-        post_slack ":broom: *disk on ${IDENT}'s box is back to ${worst}%* — ${worst_line% *} used."
+        post_alert "disk on ${IDENT}'s box is back to ${worst}% — ${worst_line% *} used."
     fi
 }
 disk_check
@@ -198,23 +197,22 @@ age=$(( now - mtime ))
 
 if (( age >= THRESHOLD )); then
     due silent_since || exit 0
-    if find_marker silent_since >/dev/null; then headline="*${IDENT} is still quiet*"; else headline="*${IDENT} has gone quiet*"; fi
+    if find_marker silent_since >/dev/null; then headline="${IDENT} is still quiet"; else headline="${IDENT} has gone quiet"; fi
     last_ts=$(date -u -d "@$mtime" +%FT%TZ 2>/dev/null || date -u -r "$mtime" +%FT%TZ 2>/dev/null || echo "$mtime")
     log_tail=$(tail -n 4 "$RUN_DIR/logs/dispatcher.log" 2>/dev/null | cut -c1-200 || true)
     steps=$(cat "$RUN_DIR/step_pids" 2>/dev/null | tr '\n' ' ' || true)
-    post_slack ":zzz: ${headline} — no trajectory step for $(fmt "$age") (last at ${last_ts}) while ${unit} is up. The wake loop is stuck, not dead: check for a step that never exited (\`run/step_pids\`: ${steps:-none}), a dispatcher with nothing to fire, or a full disk.
-\`\`\`
-${log_tail}
-\`\`\`"
+    post_alert "${headline} — no trajectory step for $(fmt "$age") (last at ${last_ts}) while ${unit} is up. The wake loop is stuck, not dead: check for a step that never exited (\`run/step_pids\`: ${steps:-none}), a dispatcher with nothing to fire, or a full disk.
+---
+${log_tail}"
     mark silent_since "$mtime"
 else
     find_marker silent_since >/dev/null || exit 0
     since=$(marker_value silent_since)
     unmark silent_since
     if [[ -n "$since" ]] && (( mtime > since )); then
-        post_slack ":sunrise: *${IDENT} is back* — quiet for $(fmt $(( mtime - since ))), steps are landing again."
+        post_alert "${IDENT} is back — quiet for $(fmt $(( mtime - since ))), steps are landing again."
     else
-        post_slack ":sunrise: *${IDENT} is back* — steps are landing again."
+        post_alert "${IDENT} is back — steps are landing again."
     fi
 fi
 exit 0

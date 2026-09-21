@@ -17,8 +17,7 @@ allowed_emails = [
 
 # Optional: let a whole Google Workspace domain SSO into the dash. Create an
 # OAuth client in Google Cloud console first (type Web application, redirect
-# URI https://<team>.cloudflareaccess.com/cdn-cgi/access/callback) — see
-# deploy/terraform-slack/README.md for the consent-screen choice. Leave
+# URI https://<team>.cloudflareaccess.com/cdn-cgi/access/callback). Leave
 # unset for OTP-only.
 # allowed_email_domains  = ["example.com"]
 # google_oauth_client_id = "1234-abc.apps.googleusercontent.com"

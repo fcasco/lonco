@@ -14,7 +14,7 @@ mkdir -p "$WORK/trajectories/$TRAJ_ID/blobs"
 T="$WORK/trajectories/$TRAJ_ID/trajectory.jsonl"
 export TRAJ_DIR="$WORK/trajectories" TRAJ_ID
 printf '{"step_id":"%s","type":"trajectory","ts":"2026-01-01T00:00:00Z"}\n' "$TRAJ_ID" > "$T"
-printf '{"step_id":"s1","type":"reasoning","cmd":"chat send --to slack-C1 \\"Dr. Claw paper\\"","ts":"2026-01-01T00:00:01Z"}\n' >> "$T"
+printf '{"step_id":"s1","type":"reasoning","cmd":"chat send --to telegram-1-1 \\"Dr. Claw paper\\"","ts":"2026-01-01T00:00:01Z"}\n' >> "$T"
 printf '{"step_id":"s2","type":"shell-output","stdout":"nothing here","ts":"2026-01-01T00:00:02Z"}\n' >> "$T"
 printf 'RISE paper in a blob\n' > "$WORK/trajectories/$TRAJ_ID/blobs/b1.txt"
 printf '{"step_id":"s3","type":"shell-output","stdout":"[blob]","stdout_ref":"blobs/b1.txt","ts":"2026-01-01T00:00:03Z"}\n' >> "$T"

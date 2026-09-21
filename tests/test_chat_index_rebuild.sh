@@ -36,7 +36,7 @@ OFF="$IDX.offset"
 export IDENTITY_NAME=ada TRAJ_DIR="$ID/trajectories" TRAJ_ID="$TRAJ_ID" MEM_DIR="$ID/memories"
 
 ago() { date -u -v-"$1"S +%Y-%m-%dT%H:%M:%S.000Z 2>/dev/null || date -u -d "$1 seconds ago" +%Y-%m-%dT%H:%M:%S.000Z; }
-NICK="slack-U0BFD9NDVE3-D0C1FDPARPD"
+NICK="telegram-8525624593-1231231231"
 msg()   { printf '{"step_id":"%s","type":"message","from":"%s","to":"%s","content":"%s","ts":"%s","source":"chat"}\n' "$1" "$2" "$3" "$4" "$(ago "$5")" >> "$TRAJ"; }
 defer() { printf '{"step_id":"%s","type":"action","source":"responder","trigger_step":"%s","person":"%s","request":"%s","ts":"%s"}\n' "$1" "$2" "$3" "$4" "$(ago "$5")" >> "$TRAJ"; }
 printf '{"step_id":"hdr-1","type":"trajectory","ts":"%s"}\n' "$(ago 99999)" > "$TRAJ"

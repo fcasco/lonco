@@ -115,7 +115,7 @@ sudo systemctl restart headlong-web
 ```
 
 **Thinker dispatchers run as per-identity systemd units.** When the dash
-(or the Slack bootstrap) starts an identity's thinkers, the dispatcher runs
+starts an identity's thinkers, the dispatcher runs
 under `headlong-thinkers@<identity>.service` in its own cgroup, so web-server
 restarts and OOM kills cannot orphan or kill a mind. The web control plane
 reaches systemd through `/usr/local/bin/headlong-thinkersctl`, a root-owned
@@ -183,9 +183,9 @@ for a while.
 
 What deliberately keeps the `shellm` name: the `/opt/shellm` path, the
 `shellm` and `shellm-telegram` UNIX users, `~shellm/.shellm`, the
-per-identity `.shellm/` subdirectory, the `/shellm-slack/env` SSM
-parameter, and the `*.shellm.net` domains. Each is a physical move with its
-own migration and none of them need to happen for the unit rename.
+per-identity `.shellm/` subdirectory, and the `*.shellm.net` domains. Each
+is a physical move with its own migration and none of them need to happen
+for the unit rename.
 
 ## Security notes
 
@@ -194,9 +194,8 @@ own migration and none of them need to happen for the unit rename.
 - `headlong-web` binds `127.0.0.1` and the tunnel is outbound-only, so the
   only path in is through Access. Don't "temporarily" bind `0.0.0.0`.
 - Secrets: root key in `/opt/shellm/app/.env` (mode 600); per-identity
-  overrides via the Config tab (stored in `<identity>/.env`). The Slack
-  bridge tokens are split out to `/opt/shellm/app/.env.bridge`, which
-  the mind cannot read (`deploy/split-bridge-env.sh`, run by `update.sh`).
+  overrides via the Config tab (stored in `<identity>/.env`). Telegram's
+  bot token is separate and root-owned (see SECURITY.md).
 - Every wake runs under a systemd sandbox: filesystem read-only except
   the shellm home, the identity's own directory and the temp dirs. `HEADLONG_SANDBOX=0` in the root `.env` plus `update.sh` and a
   `headlong-thinkersctl restart <identity>` turns it off

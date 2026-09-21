@@ -22,7 +22,7 @@ notes, then announce. The tag is cheap and can be deleted if needed.
 ## Naming
 
 Use SemVer with a `v` prefix: `v0.1.0`. The manifests already say 0.1.0
-(`web/pyproject.toml`, `slack/pyproject.toml`, `telegram/pyproject.toml`,
+(`web/pyproject.toml`, `telegram/pyproject.toml`,
 `tui/headlong/Cargo.toml`), so the first tag matches them. Below 1.0
 signals "early, expect change", which is honest for a launch. Later
 releases bump the middle number for features and the last for fixes.
@@ -39,7 +39,7 @@ line is true.
    on pushes to `main` and on PRs, not on tags, so the green run is the one
    for the commit itself.
 2. Audel's box is deployed to the same commit and healthy
-   (`SHELLM_TF_STACK=terraform-slack deploy/scripts/status` shows the SHA).
+   (`deploy/scripts/status` shows the SHA).
    Announcing a version that differs from what the live demo runs invites
    confusion.
 3. The secret scan is clean and the two keys it found still live (SerpAPI,

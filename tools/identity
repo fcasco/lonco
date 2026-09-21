@@ -507,7 +507,6 @@ _slim_redact() {
         -e 's/sk-or-v1-[A-Za-z0-9]+/[REDACTED:openrouter]/g' \
         -e 's/sk-ant-[A-Za-z0-9._-]+/[REDACTED:anthropic]/g' \
         -e 's/sk-proj-[A-Za-z0-9_-]+/[REDACTED:openai]/g' \
-        -e 's/xox[abpse]-[A-Za-z0-9-]+/[REDACTED:slack]/g' \
         -e 's/lin_api_[A-Za-z0-9]+/[REDACTED:linear]/g' \
         -e 's/AKIA[A-Z0-9]{16}/[REDACTED:aws]/g'
 }

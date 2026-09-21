@@ -35,9 +35,9 @@ export CHATRC="$WORK/.chatrc"
 printf 'default_send_from=tester\n' > "$CHATRC"
 cd "$WORK" || exit 1
 
-# --- happy path: text file keeps body in content (Slack/web still read it) ---
+# --- happy path: text file keeps body in content (every route reads it) ---
 printf 'hello file\n' > "$WORK/note.txt"
-if chat send-file --from tester --to slack-U1-C1 "$WORK/note.txt" >/dev/null 2>"$WORK/err"; then
+if chat send-file --from tester --to telegram-1-1 "$WORK/note.txt" >/dev/null 2>"$WORK/err"; then
     step=$(traj cat "$TRAJ_ID" --filter type=message --raw 2>/dev/null | tail -n 1)
     got_name=$(printf '%s' "$step" | jq -r '.filename')
     got_content=$(printf '%s' "$step" | jq -r '.content')
@@ -47,9 +47,9 @@ if chat send-file --from tester --to slack-U1-C1 "$WORK/note.txt" >/dev/null 2>"
     b64=$(printf '%s' "$step" | jq -r '.content_b64')
     printf '%s' "$b64" | base64 -d > "$WORK/decoded.txt" 2>/dev/null || true
     if [[ "$got_name" == "note.txt" && "$got_content" == "hello file" \
-          && "$got_from" == "tester" && "$got_to" == "slack-U1-C1" \
+          && "$got_from" == "tester" && "$got_to" == "telegram-1-1" \
           && "$got_src" == "chat" ]] && cmp -s "$WORK/note.txt" "$WORK/decoded.txt"; then
-        ok "send-file text keeps body in content for non-Telegram routes"
+        ok "send-file text keeps body in content on every route"
     else
         bad "send-file stamps fields" " step=$step"
     fi

@@ -133,7 +133,6 @@ class ThinkerSyncBody(BaseModel):
 class ChatSendBody(BaseModel):
     content: str
     from_name: str
-    source_url: str | None = None
 
 
 class PushSubscribeBody(BaseModel):
@@ -736,10 +735,8 @@ def create_app(
             raise HTTPException(status_code=422, detail="Empty message")
         if not safety.CHAT_FROM_RE.match(body.from_name):
             raise HTTPException(status_code=422, detail="Invalid sender name")
-        if body.source_url is not None and not safety.is_slack_permalink(body.source_url):
-            raise HTTPException(status_code=422, detail="Invalid source URL")
         return control.chat_send(
-            root, identity, body.content, body.from_name, body.source_url
+            root, identity, body.content, body.from_name
         )
 
     # -- Web push ----------------------------------------------------------

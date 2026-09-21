@@ -18,47 +18,34 @@ function message(
   };
 }
 
-describe("mind log Slack links", () => {
-  it("keeps the permalink on an inbound Slack card", () => {
-    const url = "https://laudesters.slack.com/archives/C123/p1788451200123456";
+describe("mind log cards", () => {
+  it("renders an inbound message card", () => {
     const card = toCard(
       message("m1", {
-        from: "slack-U1-C123-1788451200.123456",
+        from: "nick",
         to: "audel",
         content: "please check this",
-        source_url: url,
       }),
       "audel"
     );
-    expect(card?.source_url).toBe(url);
+    expect(card).not.toBeNull();
+    expect(card?.kind).toBe("inbound");
+    expect(card?.label).toBe("Nick replied");
+    expect(card?.body).toBe("please check this");
+    expect(card?.step_id).toBe("m1");
   });
 
-  it("links a reply to the Slack message it answers", () => {
-    const url = "https://laudesters.slack.com/archives/C123/p1788451200123456";
+  it("renders an outbound message card", () => {
     const card = toCard(
-      {
-        ...message("m2", {
-          from: "audel",
-          to: "slack-U1-C123-1788451200.123456",
-          content: "done",
-          reply_to: "m1",
-        }),
-        source_url: url,
-      },
-      "audel"
-    );
-    expect(card?.source_url).toBe(url);
-  });
-
-  it("opens the Slack conversation for an old message with no permalink", () => {
-    const card = toCard(
-      message("m0", {
-        from: "slack-U1-D123",
-        to: "audel",
-        content: "an old message",
+      message("m2", {
+        from: "audel",
+        to: "nick",
+        content: "done",
+        reply_to: "m1",
       }),
       "audel"
     );
-    expect(card?.source_url).toBe("https://slack.com/app_redirect?channel=D123");
+    expect(card?.kind).toBe("outbound");
+    expect(card?.label).toBe("sent to Nick");
   });
 });

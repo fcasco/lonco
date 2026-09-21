@@ -53,16 +53,16 @@ WAKE='{"type":"monolith-wake","content":"wake","source":"monolith-timer"}'
 # Two outbound messages before the first wake: one the bridge confirmed, one
 # it could not deliver (design/outbound_delivery.md, part 5).
 now_ts=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
-printf '{"step_id":"m1","type":"message","from":"testid","to":"slack-C0BMVH6LM4K","content":"papers for today","source":"chat","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
-printf '{"step_id":"d1","type":"delivery","source":"slack-bridge","transport":"slack","trigger_step":"m1","status":"delivered","channel":"C0BMVH6LM4K","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
-printf '{"step_id":"m2","type":"message","from":"testid","to":"slack-nick","content":"lost note","source":"chat","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
-printf '{"step_id":"d2","type":"delivery","source":"slack-bridge","transport":"slack","trigger_step":"m2","status":"failed","reason":"unknown slack address form","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
+printf '{"step_id":"m1","type":"message","from":"testid","to":"telegram-1111111111-222111","content":"papers for today","source":"chat","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
+printf '{"step_id":"d1","type":"delivery","source":"telegram-bridge","transport":"telegram","trigger_step":"m1","status":"delivered","channel":"12345","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
+printf '{"step_id":"m2","type":"message","from":"testid","to":"telegram-0-0","content":"lost note","source":"chat","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
+printf '{"step_id":"d2","type":"delivery","source":"telegram-bridge","transport":"telegram","trigger_step":"m2","status":"failed","reason":"unknown address form","ts":"%s"}\n' "$now_ts" >> "$TRAJ"
 
 run_step "$WAKE"
 p=$(cat "$STUB_CAPTURE" 2>/dev/null)
 grep -q '^Sent in the last 24h' <<<"$p" && ok "the sent section is in the wake prompt" || bad "sent section present"
-grep -q 'to slack-C0BMVH6LM4K: delivered "papers for today"' <<<"$p" && ok "a delivered send is listed as delivered" || bad "delivered line" "$(grep 'to slack-' <<<"$p")"
-grep -q 'to slack-nick: FAILED, never arrived (unknown slack address form) "lost note"' <<<"$p" && ok "a failed send is listed with its reason" || bad "failed line" "$(grep 'to slack-' <<<"$p")"
+grep -q 'to telegram-1111111111-222111: delivered "papers for today"' <<<"$p" && ok "a delivered send is listed as delivered" || bad "delivered line" "$(grep 'to telegram-' <<<"$p")"
+grep -q 'to telegram-0-0: FAILED, never arrived (unknown address form) "lost note"' <<<"$p" && ok "a failed send is listed with its reason" || bad "failed line" "$(grep 'to telegram-' <<<"$p")"
 grep -q '^- Now: [A-Z][a-z]*day [0-9-]* [0-9:]* UTC (' <<<"$p" && ok "the clock line is in the routing signals" || bad "clock line" "$(grep -A2 '^Routing signals' <<<"$p")"
 grep -q "^- DUE NOW: \"Daily digest for the team\".*--key 5ced0001/$(date -u +%Y-%m-%d)-0000 " <<<"$p" && ok "a scheduled goal's open window is DUE with its key" || bad "due line" "$(grep -i 'digest' <<<"$p" | head -3)"
 grep -q '^Related memories' <<<"$p" && ok "the related-memories section is in the wake prompt" || bad "related section present" "$(grep -c . <<<"$p") lines"

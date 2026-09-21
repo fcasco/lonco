@@ -46,27 +46,27 @@ printf '{"step_id":"%s","type":"trajectory","ts":"2026-01-01T00:00:00.000Z"}\n' 
 
 # ── Part 1: keys on sends ────────────────────────────────────────────────────
 K="abcd1234/2026-09-18-0900"
-out=$(chat send --to slack-C0TESTCHAN1 --key "$K" "papers, first wording" 2>&1); rc=$?
+out=$(chat send --to telegram-1-1 --key "$K" "papers, first wording" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "keyed send goes out" || bad "keyed send goes out" "$out"
 got=$(tail -n 1 "$TRAJ" | jq -r '.key // ""')
 [[ "$got" == "$K" ]] && ok "message step carries the key" || bad "message step carries the key" "$got"
 has "chat sent shows the key" "$(chat sent 2>&1)" "[$K]"
 [[ "$(chat sent --json | jq -r '.[0].key')" == "$K" ]] && ok "chat sent --json has key" || bad "chat sent --json has key"
 
-out=$(chat send --to slack-C0TESTCHAN1 --key "$K" "papers, reworded entirely" 2>&1); rc=$?
+out=$(chat send --to telegram-1-1 --key "$K" "papers, reworded entirely" 2>&1); rc=$?
 [[ $rc -ne 0 ]] && ok "same key, new wording: refused" || bad "same key, new wording: refused" "$out"
 has "refusal names the key" "$out" "$K"
-out=$(chat send --to slack-C0TESTCHAN1 --key "abcd1234/2026-09-18-1700" "papers, evening" 2>&1); rc=$?
+out=$(chat send --to telegram-1-1 --key "abcd1234/2026-09-18-1700" "papers, evening" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "a different key goes out" || bad "a different key goes out" "$out"
-out=$(chat send --to slack-C0TESTCHAN1 --key "$K" --force "papers, forced" 2>&1); rc=$?
+out=$(chat send --to telegram-1-1 --key "$K" --force "papers, forced" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "--force overrides the key refusal" || bad "--force overrides the key refusal" "$out"
 
 KF="abcd1234/2026-09-19-0900"
-chat send --to slack-C0TESTCHAN1 --key "$KF" "will fail" >/dev/null 2>&1
+chat send --to telegram-1-1 --key "$KF" "will fail" >/dev/null 2>&1
 fid=$(tail -n 1 "$TRAJ" | jq -r '.step_id')
-printf '{"step_id":"dlv-f","type":"delivery","source":"slack-bridge","transport":"slack","trigger_step":"%s","status":"failed","reason":"channel_not_found","ts":"%s"}\n' \
+printf '{"step_id":"dlv-f","type":"delivery","source":"telegram-bridge","transport":"telegram","trigger_step":"%s","status":"failed","reason":"chat_not_found","ts":"%s"}\n' \
     "$fid" "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$TRAJ"
-out=$(chat send --to slack-C0TESTCHAN2 --key "$KF" "second try, fixed address" 2>&1); rc=$?
+out=$(chat send --to telegram-2-2 --key "$KF" "second try, fixed address" 2>&1); rc=$?
 [[ $rc -eq 0 ]] && ok "a FAILED send does not use up its key" || bad "a FAILED send does not use up its key" "$out"
 
 # ── Part 2: mem add --schedule / --tz ────────────────────────────────────────
@@ -120,7 +120,7 @@ out=$(signals "$DAY 09:05")
 has "window open and unsent: due"  "$out" "DUE NOW"
 has "due line gives the exact key" "$out" "--key $GID/$DAY-0900"
 
-chat send --to slack-C0TESTCHAN1 --key "$GID/$DAY-0900" "morning papers" >/dev/null 2>&1
+chat send --to telegram-1-1 --key "$GID/$DAY-0900" "morning papers" >/dev/null 2>&1
 out=$(signals "$DAY 09:06")
 hasnt "after the keyed send: not due"   "$out" "DUE NOW"
 has   "after the keyed send: says sent" "$out" "the 09:00 window was sent at"

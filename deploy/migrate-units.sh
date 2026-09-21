@@ -24,7 +24,7 @@ set -euo pipefail
 #     match the still-running shelly-thinkers@ cgroup. Keep that window
 #     short and supervised; run this script immediately after the deploy.
 #   - --rollback restores the shelly-* unit files it backed up, but their
-#     ExecStart binaries (shelly-web, shelly-slack-bridge, ...) only exist
+#     ExecStart binaries (shelly-web, ...) only exist
 #     while the code is on a pre-rename commit. A real rollback is:
 #     git checkout <pre-rename commit>, uv sync each project, THEN
 #     --rollback. The EBS snapshot is the deep backstop.
@@ -51,18 +51,14 @@ UNIT_PAIRS=(
     "shelly-web.service:headlong-web.service"
     "shelly-thinkers@.service:headlong-thinkers@.service"
     "shelly-thinkers-alert@.service:headlong-thinkers-alert@.service"
-    "shelly-slack-bridge.service:headlong-slack-bridge.service"
-    "shelly-slack-agent.service:headlong-slack-agent.service"
     "shelly-telegram-bridge.service:headlong-telegram-bridge.service"
 )
 
 # Stopped in this order: bridges first so nothing new arrives while the mind
-# drains, then the persona bootstrap, then the dispatchers, then the web
+# drains, then the dispatchers, then the web
 # control plane last (it is what an operator watches for health).
 STOP_ORDER=(
-    shelly-slack-bridge.service
     shelly-telegram-bridge.service
-    shelly-slack-agent.service
     shelly-web.service
 )
 
@@ -94,7 +90,7 @@ run() {
 
 # Running thinkers instances, e.g. "audel" — recorded before the stop so the
 # same minds come back up afterwards. The template itself is never enabled;
-# instances are started by the slack persona bootstrap (oneshot).
+# instances are started by the deploy (oneshot).
 thinker_instances() {
     local prefix="$1" u
     systemctl list-units --all --plain --no-legend "${prefix}@*" 2>/dev/null \
@@ -190,13 +186,12 @@ done
 # No compat aliases this time: the headlong-* console scripts must already
 # be in the venvs (deploy update.sh ran on the rename commit) or the new
 # units will have nothing to exec.
-for proj_bin in web/.venv/bin/headlong-web slack/.venv/bin/headlong-slack-bridge \
+for proj_bin in web/.venv/bin/headlong-web \
                 telegram/.venv/bin/headlong-telegram-bridge; do
     proj="${proj_bin%%/*}"
     # Optional components: only require the binary if the component's legacy
     # unit is actually installed.
     case "$proj" in
-        slack)    [[ -f "$SYSD/shelly-slack-bridge.service" ]] || continue ;;
         telegram) [[ -f "$SYSD/shelly-telegram-bridge.service" ]] || continue ;;
     esac
     [[ -x "$APP_DIR/$proj_bin" ]] \
@@ -355,7 +350,7 @@ run systemctl daemon-reload
 ########################################################################
 say "Starting headlong-* units"
 # Enable whatever was enabled before. Templates are never enabled; their
-# instances come up through the slack persona bootstrap, same as on boot.
+# instances come up through the deploy's bootstrap, same as on boot.
 while IFS=$'\t' read -r unit enabled _active; do
     [[ "$enabled" == enabled ]] || continue
     new=""
@@ -372,8 +367,7 @@ done < <(if [[ $DRY_RUN -eq 1 ]]; then printf '%s' "$manifest"; else cat "$BACKU
 # Web first so the dash is up to watch the rest. Then the persona bootstrap,
 # whose ExecStart calls `headlong-thinkersctl restart <identity>` and brings
 # the mind back — the same path every reboot takes. Then the bridges.
-for unit in headlong-web.service headlong-slack-agent.service \
-            headlong-slack-bridge.service headlong-telegram-bridge.service; do
+for unit in headlong-web.service headlong-telegram-bridge.service; do
     # In a dry run nothing was installed, so test the repo source instead —
     # otherwise the rehearsal skips the entire start phase and shows
     # nothing about the step most worth rehearsing.
@@ -413,7 +407,6 @@ for pair in "${UNIT_PAIRS[@]}"; do
     [[ "$new" == *"@.service" ]] && continue   # templates have no state
     st=$(systemctl is-active "$new" 2>/dev/null || true)
     printf '    %-36s %s\n' "$new" "$st"
-    # slack-agent is a oneshot: "active (exited)" is success.
     [[ "$st" == active ]] || fail=1
 done
 for ident in "${INSTANCES[@]:-}"; do

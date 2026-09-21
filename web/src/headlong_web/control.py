@@ -346,13 +346,10 @@ def chat_send(
     identity: IdentityInfo,
     content: str,
     from_name: str,
-    source_url: str | None = None,
 ) -> dict:
     env = identity_env(identity, root)
     to_name = env["IDENTITY_NAME"]
     args = ["chat", "send", "--from", from_name, "--to", to_name]
-    if source_url is not None:
-        args.extend(["--source-url", source_url])
     proc = run_cli(
         _wrap(*args),
         env,

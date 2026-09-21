@@ -38,28 +38,6 @@ _chat_append() {
     traj append "${ROOT_TRAJ_ID:-$TRAJ_ID}" >/dev/null
 }
 
-# Slack target grammar. This string is a copy of NAME_RE_TEXT in
-# slack/src/headlong_slack/naming.py and slack/tests/test_naming.py asserts the
-# two are identical, so chat cannot accept a name the bridge would drop (the
-# bridge dropped 23 of Audel's 74 sends in one week with no error, 2026-09-09;
-# design/outbound_delivery.md). Edit both or CI fails.
-_SLACK_NAME_RE='^slack-([UW][A-Z0-9]+|[CGD][A-Z0-9]+|[A-Za-z0-9]+-[A-Za-z0-9]+(-[0-9.]+)?)$'
-
-# _check_target <name>: a name that claims to be Slack must be one the bridge
-# can deliver. Other transports' names pass through untouched.
-_check_target() {
-    local name="$1"
-    [[ "$name" == slack-* ]] || return 0
-    [[ "$name" =~ $_SLACK_NAME_RE ]] && return 0
-    die "cannot deliver to '$name': not a Slack address the bridge understands.
-Accepted forms:
-  slack-<user>-<channel>-<thread ts>   reply in a channel thread (copy the sender's name verbatim)
-  slack-<user>-<channel>               a DM, or a channel top-level
-  slack-C<id>                          post top-level in a channel (e.g. slack-C0BMVH6LM4K)
-  slack-U<id>                          DM a person (e.g. slack-U0BFD9NDVE3)
-Slack ids are uppercase: users start with U, channels with C."
-}
-
 # Handle --help before env var check
 case "${1:-}" in -h|--help|help) ;; *)
     [[ -n "${TRAJ_DIR:-}" ]] || die "TRAJ_DIR not set. Run: identity shell <name>"
@@ -87,12 +65,11 @@ Create a .chatrc file with:
 }
 
 cmd_send() {
-    local message="" from="" to="${IDENTITY_NAME:-}" source_url="" force=0 key=""
+    local message="" from="" to="${IDENTITY_NAME:-}" force=0 key=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --from) from="${2:?--from requires a name}"; shift 2 ;;
             --to)   to="${2:?--to requires a name}"; shift 2 ;;
-            --source-url) source_url="${2:?--source-url requires a URL}"; shift 2 ;;
             --force) force=1; shift ;;
             --key)  key="${2:?--key requires a key}"; shift 2 ;;
             *)      message="${message:+$message }$1"; shift ;;
@@ -106,7 +83,6 @@ cmd_send() {
     [[ -z "$message" ]] && die "No message provided. Usage: chat send [--from <name>] [--to <name>] <message>"
 
     _resolve_from_to
-    _check_target "$to"
 
     # A self-addressed message re-triggers the identity's own message
     # subscriptions, which can loop it into replying to itself forever.
@@ -119,15 +95,12 @@ To keep a note for yourself, append a thought step instead of a message."
     [[ "$force" -eq 1 || -z "$key" ]] || _refuse_key "$key"
     [[ "$force" -eq 1 ]] || _refuse_repeat "$from" "$to" "$message"
 
-    # source_url records where a bridged message came from. It is optional
-    # metadata for operators and never affects routing or model context.
     printf '%s' "$message" \
         | jq -Rsc \
         --arg from "$from" \
         --arg to "$to" \
-        --arg source_url "$source_url" --arg key "$key" \
+        --arg key "$key" \
         '{type:"message", content:., from:$from, to:$to, source:"chat"}
-         + (if $source_url == "" then {} else {source_url:$source_url} end)
          + (if $key == "" then {} else {key:$key} end)' \
         | _chat_append
 
@@ -152,7 +125,6 @@ cmd_reply() {
     local to_name="${1:-}"
     [[ -z "$to_name" ]] && die "Usage: chat reply [--reply-to <step_id>] <to_name> [message]"
     shift
-    _check_target "$to_name"
 
     local message=""
     while [[ $# -gt 0 ]]; do
@@ -248,7 +220,6 @@ cmd_send_file() {
     done
     [[ -z "$filepath" ]] && die "Usage: chat send-file [--from <name>] [--to <name>] <filename>"
     [[ -f "$filepath" ]] || die "File not found: $filepath"
-    _check_target "$to"
 
     local size max
     size=$(stat -c%s "$filepath" 2>/dev/null || wc -c < "$filepath")
@@ -268,7 +239,7 @@ cmd_send_file() {
     filename=$(basename "$filepath")
     # Binary-safe: JSON cannot hold raw bytes, so stamp standard base64
     # via a temp file (never argv). Text files also keep their body in
-    # `content` so Slack and web chat still deliver the file text; binary
+    # `content` so bridges and the web chat still deliver the file text; binary
     # files use a short marker because `content` cannot hold raw bytes.
     local b64tmp
     b64tmp=$(mktemp) || die "mktemp failed"
@@ -304,65 +275,52 @@ cmd_send_file() {
 }
 
 cmd_react() {
-    local from="${IDENTITY_NAME:-}" to="" reply_to="" source_url="" emoji=""
+    local from="${IDENTITY_NAME:-}" to="" reply_to="" emoji=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --from) from="${2:?--from requires a name}"; shift 2 ;;
             --to)   to="${2:?--to requires a name}"; shift 2 ;;
             --reply-to) reply_to="${2:?--reply-to requires a step id}"; shift 2 ;;
-            --source-url) source_url="${2:?--source-url requires a URL}"; shift 2 ;;
             *) break ;;
         esac
     done
     if [[ -z "$to" && $# -gt 0 ]]; then
         to="$1"; shift
     fi
-    [[ -z "$to" ]] && die "Usage: chat react [--reply-to <step_id>] [--source-url <url>] <to_name> <emoji>"
-    _check_target "$to"
+    [[ -z "$to" ]] && die "Usage: chat react [--reply-to <step_id>] <to_name> <emoji>"
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --from) from="${2:?--from requires a name}"; shift 2 ;;
             --to)   to="${2:?--to requires a name}"; shift 2 ;;
             --reply-to) reply_to="${2:?--reply-to requires a step id}"; shift 2 ;;
-            --source-url) source_url="${2:?--source-url requires a URL}"; shift 2 ;;
             *) break ;;
         esac
     done
     emoji="${1:-}"
-    [[ -z "$emoji" ]] && die "Usage: chat react [--reply-to <step_id>] [--source-url <url>] <to_name> <emoji>"
+    [[ -z "$emoji" ]] && die "Usage: chat react [--reply-to <step_id>] <to_name> <emoji>"
     shift
     [[ $# -eq 0 ]] || die "unexpected extra arguments"
 
-    # Slack reactions.add wants the short name (thumbsup), not :thumbsup: or 👍.
+    # Bridges expect the short name (thumbsup), not :thumbsup: or 👍.
     emoji="${emoji#:}"
     emoji="${emoji%:}"
-    [[ "$emoji" =~ ^[-a-z0-9_+:]{1,64}$ ]] || die "invalid Slack emoji name: $emoji"
+    [[ "$emoji" =~ ^[-a-z0-9_+:]{1,64}$ ]] || die "invalid emoji name: $emoji"
 
     _resolve_from_to
-
-    if [[ -z "$source_url" && -n "$reply_to" ]]; then
-        source_url=$(
-            traj show --traj_dir "$TRAJ_DIR" "$reply_to" --field source_url 2>/dev/null \
-                | tr -d '\n'
-        ) || true
-    fi
 
     jq -nc \
         --arg from "$from" \
         --arg to "$to" \
         --arg reaction "$emoji" \
         --arg reply_to "$reply_to" \
-        --arg source_url "$source_url" \
         '{type:"message", content:(":" + $reaction + ":"), reaction:$reaction, from:$from, to:$to, source:"chat"}
-         + (if $reply_to == "" then {} else {reply_to:$reply_to} end)
-         + (if $source_url == "" then {} else {source_url:$source_url} end)' \
+         + (if $reply_to == "" then {} else {reply_to:$reply_to} end)' \
         | _chat_append
 
     printf 'Reaction sent: :%s:\n' "$emoji" >&2
 }
 
-# UTF-8, no NUL: the historical `content=$(cat ...)` shape Slack/web still read.
-# JSON strings cannot hold NUL; jq --rawfile requires UTF-8.
+# UTF-8, no NUL: JSON strings cannot hold NUL; jq --rawfile requires UTF-8.
 _chat_is_text_file() {
     local f="$1" n stripped
     n=$(wc -c < "$f")
@@ -380,27 +338,22 @@ _chat_is_text_file() {
 # Person keys (design/conversation_memory.md, part 2)
 # ---------------------------------------------------------------------------
 # The chat `from` name is a ROUTING name: a bridge packs everything it needs
-# to deliver the reply into it, so one human is many names (a Slack user is a
-# new name in every channel thread). The person key is what stays stable:
-#   slack-U07AB-C09XYZ-1722400000.123456  ->  slack:U07AB
-#   slack-U07AB-D09XYZ                    ->  slack:U07AB
+# to deliver the reply into it, so one human is many names. The person key is
+# what stays stable:
 #   telegram-8525624593-8525624593        ->  telegram:8525624593
 #   pwa-andy                              ->  pwa:andy
 #   Andy                                  ->  Andy
 # The same rule lives in jq below (_PERSON_KEY_JQ) so the index filter can
 # apply it per line; keep the two in step.
 # The thread key is the other axis: which conversation a message sits in,
-# whoever sent it. Only Slack channel threads have one (channel + thread ts);
-# a DM, the phone chat, and Telegram are one person deep, so they get none.
-#   slack-U07AB-C09XYZ-1722400000.123456  ->  slack-thread:C09XYZ-1722400000.123456
+# whoever sent it. No current transport produces channel threads, so
+# thread_key returns empty (kept for a transport that does).
 _PERSON_KEY_JQ='def person_key:
-    if test("^slack-[A-Za-z0-9]+-[A-Za-z0-9]+(-[0-9.]+)?$") then "slack:" + (split("-")[1])
-    elif test("^telegram-[0-9]+-[0-9]+$") then "telegram:" + (split("-")[1])
+    if test("^telegram-[0-9]+-[0-9]+$") then "telegram:" + (split("-")[1])
     elif test("^pwa-.") then "pwa:" + .[4:]
     else . end;
   def thread_key:
-    if test("^slack-[A-Za-z0-9]+-[A-Za-z0-9]+-[0-9.]+$") then "slack-thread:" + (split("-")[2:] | join("-"))
-    else "" end;'
+    "";'
 
 _person_key() {
     printf '%s' "$1" | jq -Rr "$_PERSON_KEY_JQ person_key"
@@ -627,7 +580,7 @@ cmd_history() {
     if [[ -n "$with" || -n "$thread" ]]; then
         # Indexed path. --with: this person's conversation with us, grouped by
         # person key across every routing name they have used. --thread: every
-        # message in one Slack thread, whoever sent it (their messages to us
+        # message in one channel thread, whoever sent it (their messages to us
         # and our replies to anyone there). Both: the union. Newest last.
         local tf idx key keys_json tkey since_s
         tf=$(traj path "${ROOT_TRAJ_ID:-$TRAJ_ID}" 2>/dev/null) || tf=""
@@ -642,10 +595,7 @@ cmd_history() {
         fi
         tkey=""
         if [[ -n "$thread" ]]; then
-            case "$thread" in
-                slack-thread:*) tkey="$thread" ;;
-                *) tkey=$(_thread_key "$thread") ;;
-            esac
+            tkey=$(_thread_key "$thread")
             if [[ -z "$tkey" && -z "$with" ]]; then
                 [[ $as_json -eq 1 ]] && printf '[]\n'
                 return 0   # not a threaded conversation: nothing to add
@@ -745,11 +695,8 @@ cmd_pending() {
 # transport that confirms deliveries has not yet), or unconfirmed (a transport
 # with no delivery notices, e.g. the phone chat). This is the sent folder the
 # mind checks before sending again (design/outbound_delivery.md, part 5).
-# Transports whose bridge writes delivery notices on a production box. The
-# Telegram bridge can (same code) but runs as a user with read-only access to
-# the trajectory, so on Audel's box its sends would sit "pending" forever and
-# read as a bridge outage; they are "unconfirmed" until that changes.
-_SENT_CONFIRMING_RE='^(slack)-'
+# Transports whose bridge writes delivery notices decide their own state; a
+# send with no notice yet is "unconfirmed" until a bridge reports otherwise.
 cmd_sent() {
     local since="" n=50 as_json=0
     while [[ $# -gt 0 ]]; do
@@ -772,7 +719,7 @@ cmd_sent() {
     since_s=0
     [[ -n "$since" ]] && since_s=$(_duration_s "$since")
     jq -rcn --arg me "$me" --argjson since "$since_s" --argjson n "$n" --argjson json "$as_json" \
-           --arg confirming "$_SENT_CONFIRMING_RE" --slurpfile dlv "$dlv" '
+           --slurpfile dlv "$dlv" '
         def secs: (.ts // "")[0:19] + "Z" | try fromdateiso8601 catch 0;
         def age_text: if . < 3600 then "\(. / 60 | floor)m"
                       elif . < 86400 then "\(. / 3600 | floor)h"
@@ -788,7 +735,7 @@ cmd_sent() {
         | sort_by(.ts // "") | reverse | .[:$n]
         | map(. as $m | ($d[$m.step_id] // {}) as $n
               | $m + {age_s: ((now - ($m | secs)) | floor),
-                      state: ($n.status // (if ($m.to | test($confirming)) then "pending" else "unconfirmed" end)),
+                      state: ($n.status // "unconfirmed"),
                       reason: $n.reason, permalink: $n.permalink, transport: $n.transport}
               | with_entries(select(.value != null)))
         | if $json == 1 then map({step_id, ts, to, content, state, reason, permalink, transport, age_s, reply_to, filename, key})
@@ -866,7 +813,7 @@ usage() {
 chat — Messaging for an activated identity
 
 Usage:
-  chat send [--from <name>] [--to <name>] [--source-url <url>] [--key <key>] [--force] <message>
+  chat send [--from <name>] [--to <name>] [--key <key>] [--force] <message>
                              Send a message (from defaults to .chatrc
                              default_send_from, to defaults to $IDENTITY_NAME).
                              Refuses a message identical to one sent to the
@@ -874,13 +821,10 @@ Usage:
                              (CHAT_REPEAT_WINDOW) unless --force.
                              --key names the one duty this send fulfils;
                              a second send with the same key is refused.
-                             A slack-* destination must be a form the bridge
-                             delivers: slack-<user>-<channel>[-<ts>],
-                             slack-C<id> (channel), or slack-U<id> (DM)
   chat send-file [--from <name>] [--to <name>] <file>
                              Send a file's contents as a message
-  chat react [--reply-to <step_id>] [--source-url <url>] <to_name> <emoji>
-                             Add a Slack emoji reaction (name, not unicode).
+  chat react [--reply-to <step_id>] <to_name> <emoji>
+                             Add an emoji reaction (short name, not unicode).
                              Stamps reaction on a chat-sourced message step.
   chat reply [--reply-to <step_id>] [--follow-up] [--force] <to_name> <message>
                              Agent sends a reply (from is $IDENTITY_NAME).
@@ -910,7 +854,7 @@ Usage:
                              trajectory (derived, self-maintaining; the
                              trajectory stays the source of truth)
   chat history --thread <name> [--since 1d] [-n N] [--json]
-                             Every message in that Slack thread, whoever
+                             Every message in that channel thread, whoever
                              sent it (combine with --with for the union)
   chat pending [--max-age 14d] [--json]
                              Requests the responder deferred to the mind
@@ -921,9 +865,9 @@ Usage:
                              <trigger> <person>` and closes it with an
                              observation carrying resolves=<trigger>
   chat person-key <name>     Print the stable person key for a routing name
-                             (slack-U..-C..-ts -> slack:U..; pwa-x -> pwa:x)
-  chat thread-key <name>     Print the thread key (Slack channel threads
-                             only; empty for DMs, phone chat, Telegram)
+                             (telegram-1-1 -> telegram:1; pwa-x -> pwa:x)
+  chat thread-key <name>     Print the thread key (channel threads only;
+                             empty without a threading transport)
   chat repl                  Interactive chat (shows agent replies inline)
 
 Config file ($CHATRC, default ./.chatrc):

@@ -1,12 +1,12 @@
 # deploy/terraform-collab — SSH-reachable boxes for outside collaborators.
 #
 # Each box runs its own isolated Headlong install (deploy/setup.sh, the same
-# provisioning as Audel's box) and is reached over plain key-only SSH by one
+# provisioning as a demo box) and is reached over plain key-only SSH by one
 # collaborator who gets passwordless sudo. Nothing of Laude's is on the box
-# beyond the compute: no Slack tokens, no Cloudflare, no shared identity.
+# beyond the compute: no Cloudflare, no shared identity.
 # Nick keeps SSM access through the instance role.
 #
-# Sibling of deploy/terraform (demo) and deploy/terraform-slack (Audel), not
+# Sibling of deploy/terraform (demo), not
 # a shared module: those stacks carry live instances and a shared template
 # would rebuild them. Provisioning deltas from them:
 #   - `boxes` is a map, one instance + Elastic IP per entry (for_each).

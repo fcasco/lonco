@@ -32,12 +32,12 @@ The same thing happens on Audel every day. The examples below are real
 replies Audel sent after a gap of one to six hours since the previous
 exchange with that person.
 
-- Andy asked how the Slack and Telegram bridge work was going. Audel had
+- Andy asked how the Telegram bridge work was going. Audel had
   been doing that work. Audel replied "Honestly nothing recent from me, I've
   been idle."
-- Andy said an SVG image was not rendering in Slack. Audel had sent that
-  image four hours earlier. Audel replied "Ah, Slack ate it. Is it an image
-  that never showed up?"
+- Andy said an image file he had been expecting never arrived. Audel had
+  sent that image four hours earlier. Audel replied "Ah, did it never come
+  through? It went out on my end."
 - Andy said "great! can you paste it into the top level of this channel?"
   three hours after Audel reviewed a launch draft for him. No reply was
   recorded at all.
@@ -64,16 +64,19 @@ Nobody chose them for a chat context.
 
 Two other parts of the design make it worse.
 
-- The Slack bridge encodes the sender as user, channel, and thread
-  timestamp. The same person is a different `from` in every channel thread,
-  so the responder never sees a person's messages from another thread.
-  Direct messages, the phone chat, and Telegram use stable names.
+- A transport encodes the sender into the routing name exactly one way.
+  The Telegram bridge writes `telegram-<user id>-<chat id>`, the phone
+  chat writes `pwa-<name>`, and a plain `chat send` uses a plain name.
+  There is no thread axis today (`thread_key` returns empty), so the
+  same person is the same `from` everywhere and the responder already
+  sees their whole conversation.
 - The responder has no tools. When it says "I'm on it", nothing is
   obligated to follow. The monolith only sees an observation reading
   "Replied to Andy: I'll check...", and its prompt tells it never to reply.
 
-The bridges are not the cause. Slack, Telegram, and the web chat all append
-a plain message step, and the responder reads the same log for all of them.
+The bridges are not the cause. Telegram, the phone chat, and plain `chat`
+sends all append a plain message step, and the responder reads the same log
+for all of them.
 
 ## Measurements
 
@@ -208,8 +211,6 @@ stable person key with no configuration.
 
 | Routing name | Person key |
 |---|---|
-| slack-U0614H65RN3-C0BMVH6LM4K-1787508187.726149 | slack:U0614H65RN3 |
-| slack-U0614H65RN3-D0BNW58GP5W | slack:U0614H65RN3 |
 | telegram-8525624593-8525624593 | telegram:8525624593 |
 | pwa-andy | pwa:andy |
 | Andy | Andy |
@@ -217,42 +218,41 @@ stable person key with no configuration.
 `chat history --with` accepts either a routing name or a person key and
 groups by person key. The responder passes the trigger's `from`, gets the
 whole person's history back, and still replies to the trigger's `from`.
-Since 2026-08-16 Audel has had 52 messages from one Slack user across 14
-threads, and today each thread starts from nothing.
+The split that remains is a human who uses both the phone chat and
+Telegram: `pwa-andy` and `telegram-…` are two routing names for one
+person, and without the person key their history is split too.
 
 Linking the same human across channels is a second layer. The person
 memory file from Part 4 gets an `aliases` list in its frontmatter, and
 `chat history` merges every key listed there. The list can be filled three
 ways, and unlinked aliases fall back to the first layer.
 
-- The Slack bridge already puts the display name in the inbound header,
-  e.g. "Andy Konwinski in #headlong-bot". Stamping a `display_name` field on
-  the message step gives a cheap link to a phone chat name like pwa-andy.
-- The agent learns it. When someone says "this is Andy from Slack" on the
+- The Telegram bridge renders the sender's profile name into the inbound
+  message text; stamping a `display_name` field on the step instead would
+  give a cheap link to a phone chat name like pwa-andy.
+- The agent learns it. When someone says "this is Andy" on the
   phone chat, the monolith's `learn` function adds the alias.
 - For Audel, Nick can write the aliases by hand.
 
 Files touched: a helper in `bin/chat` or `thinkers/_lib/common.sh`, the
-Slack bridge for `display_name`, `thinkers/responder/step`.
+Telegram bridge for `display_name`, `thinkers/responder/step`.
 
-Thread context, added the same day after review. History by person
-alone misses what other people said in the same Slack thread, which is the
-conversation the sender is replying into. A thread key is the second pure
-function of the routing name, channel plus thread timestamp, so
-`chat history --thread <name>` returns every message in that thread from
-anyone, and `--with` plus `--thread` is the de-duplicated union. The
-responder adds the thread's last day (`RESPONDER_THREAD_SINCE`, 20
-messages) to the person's 7 days; other people's messages become user
-turns, and the bridge header in the text names the speaker. The system
-prompt says who is being answered. The observation gains `thread_msgs`,
-the count that came from the thread alone. Direct messages, the phone
-chat, and Telegram have no thread key and are unchanged.
+Thread context, added the same day after review, but currently inert.
+History by person alone misses what other people said in the same channel
+thread, which is the conversation a sender is replying into. A thread key
+was to be the second pure function of the routing name — channel plus
+thread timestamp — with `chat history --thread <name>` returning every
+message in that thread from anyone, and `--with` plus `--thread` the
+de-duplicated union. No transport produces channel threads today, so
+`thread_key` returns empty, the flag adds nothing, and the responder's
+thread fill (`RESPONDER_THREAD_SINCE`, the speaker-stamping bridge header,
+the `thread_msgs` observation) stays dormant until one does.
 `tests/test_responder_thread_context.sh` covers it.
 
 As built: `chat person-key <name>` and the same rule inside the index
 filter. `chat history --with` accepts a routing name or a person key and
 merges the `aliases` of any `type: person` memory whose `person_key`
-matches or whose aliases list the key. The Slack `display_name` stamp is
+matches or whose aliases list the key. The `display_name` stamp is
 deferred to Part 4, which is when aliases start to matter.
 
 ### Part 3. A cleaner recent stream
@@ -342,7 +342,7 @@ only rule from Experiment C in full: facts and stated preferences only,
 never turn one incident into a rule or a stance, do not record refusals.
 The reader puts the body into the responder's system prompt under "What
 you know about <person>" with a note not to treat one past incident as a
-rule. `RESPONDER_PERSON_NOTES=0` turns both off. The Slack `display_name`
+rule. `RESPONDER_PERSON_NOTES=0` turns both off. The `display_name`
 stamp for seeding aliases is still open.
 
 ### Part 5. Deferrals that the monolith must pick up

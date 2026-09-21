@@ -27,8 +27,6 @@ set -euo pipefail
 #   /tmp and /var/tmp          writable    (shared with the bridges, so a file
 #                                            the mind writes for `chat send-file`
 #                                            is still visible to them)
-#   .env.bridge                unreadable  (the Slack bridge tokens; see
-#                                            deploy/split-bridge-env.sh)
 #
 # Not NoNewPrivileges: sudoers already limits the shellm user to the
 # headlong-thinkersctl wrapper, and that is the documented way for a mind
@@ -36,8 +34,8 @@ set -euo pipefail
 # at it); it still works under the read-only root (verified 2026-09-15).
 #
 # The mind keeps sovereignty over its own identity directory and loses the
-# ability to edit the shared runtime in place, to create identities beside
-# its own, or to read the bridge's tokens. 2026-09-14: a wake created a second
+# ability to edit the shared runtime in place or to create identities beside
+# its own. 2026-09-14: a wake created a second
 # identity under .identities/, started two web servers and a nested
 # dispatcher, and wedged its own wake loop for seven hours; every earlier
 # self-inflicted incident (08-14, 09-08, 09-09, 09-12) also went through a
@@ -104,7 +102,6 @@ ProtectSystem=strict
 ReadWritePaths=$SHELLM_HOME /tmp /var/tmp
 ReadOnlyPaths=$SHELLM_HOME/app
 ReadWritePaths=$(identities_dir)/%i
-InaccessiblePaths=-$SHELLM_HOME/app/.env.bridge
 CONF
 }
 

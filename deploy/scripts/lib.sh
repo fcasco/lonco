@@ -10,23 +10,15 @@ set -euo pipefail
 
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPTS_DIR/../.." && pwd)"
-# Which stack to drive: SHELLM_TF_STACK=terraform-slack targets the Slack
-# box; default is the demo stack.
+# Which stack to drive: SHELLM_TF_STACK names a stack dir under deploy/
+# (terraform, terraform-collab, ...); default is the demo stack.
 TF_DIR="$REPO_ROOT/deploy/${SHELLM_TF_STACK:-terraform}"
 [[ -d "$TF_DIR" ]] || { echo "error: no such stack dir: $TF_DIR" >&2; exit 1; }
 
-# A persona stack is one whose user data installs the Slack bridge (the
-# Audel box, the Harris box). The demo and collab stacks are not.
-is_persona_stack() {
-    grep -qE 'SHELLM_INSTALL_SLACK_BRIDGE=1' "$TF_DIR/user_data.sh.tpl" 2>/dev/null
-}
-
-# The identity a persona stack serves: SHELLM_IDENTITY wins, then the
-# historical name for the original Slack stack, then the stack suffix
-# (terraform-harris -> harris).
+# The identity a persona stack serves: SHELLM_IDENTITY wins, then the stack
+# suffix (terraform-harris -> harris).
 stack_identity() {
     if [[ -n "${SHELLM_IDENTITY:-}" ]]; then printf '%s' "$SHELLM_IDENTITY"
-    elif [[ "${SHELLM_TF_STACK:-}" == "terraform-slack" ]]; then printf 'audel'
     else printf '%s' "${SHELLM_TF_STACK#terraform-}"
     fi
 }

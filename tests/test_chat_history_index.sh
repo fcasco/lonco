@@ -6,11 +6,11 @@
 #
 # Builds a throwaway trajectory by hand, then checks: the index is created next
 # to the trajectory and only holds message steps; --with groups one human's
-# Slack thread names and DM name under one person key; --since and -n bound the
-# result; the index picks up lines appended later without a rebuild; a partial
-# last line (a write in progress) is not consumed until it is complete; a
-# replaced trajectory (different header) triggers a rebuild; and `type: person`
-# memories merge aliases across channels. No LLM calls, no docker.
+# routing names under one person key; --since and -n bound the result; the
+# index picks up lines appended later without a rebuild; a partial last line (a
+# write in progress) is not consumed until it is complete; a replaced trajectory
+# (different header) triggers a rebuild; and `type: person` memories merge
+# aliases across channels. No LLM calls, no docker.
 
 set -uo pipefail
 unset IDENTITY_DIR IDENTITY_NAME MEM_DIR TRAJ_DIR TRAJ_ID ROOT_TRAJ_ID 2>/dev/null
@@ -48,26 +48,26 @@ msg() {  # msg <id> <from> <to> <content> <secs-ago>
 }
 noise() { printf '{"step_id":"%s","type":"reasoning","content":"...\\"type\\":\\"message\\" mentioned in prose","ts":"%s"}\n' "$1" "$(ago 5)" >> "$TRAJ"; }
 
-ANDY_T1="slack-U0614H65RN3-C0BMVH6LM4K-1787508187.726149"
-ANDY_T2="slack-U0614H65RN3-C0BMVH6LM4K-1787419141.482799"
-ANDY_DM="slack-U0614H65RN3-D0BNW58GP5W"
-BRADEN="slack-U095QV3JKA6-C0BMVH6LM4K-1787508187.726149"
+ANDY_T1="telegram-8525624593-1111111111"
+ANDY_T2="telegram-8525624593-2222222222"
+ANDY_DM="telegram-8525624593-3333333333"
+BRADEN="telegram-8525624594-1111111111"
 
 # --- person keys -------------------------------------------------------------
-[[ "$(chat person-key "$ANDY_T1")" == "slack:U0614H65RN3" ]] && ok "slack thread name -> slack:user" || bad "slack thread name -> slack:user" "got $(chat person-key "$ANDY_T1")"
-[[ "$(chat person-key "$ANDY_DM")" == "slack:U0614H65RN3" ]] && ok "slack DM name -> same key" || bad "slack DM name -> same key"
+[[ "$(chat person-key "$ANDY_T1")" == "telegram:8525624593" ]] && ok "telegram routing name -> telegram:id" || bad "telegram routing name -> telegram:id" "got $(chat person-key "$ANDY_T1")"
+[[ "$(chat person-key "$ANDY_DM")" == "telegram:8525624593" ]] && ok "the same person's names share one key" || bad "the same person's names share one key"
 [[ "$(chat person-key telegram-8525624593-8525624593)" == "telegram:8525624593" ]] && ok "telegram name -> telegram:id" || bad "telegram name -> telegram:id"
 [[ "$(chat person-key pwa-andy)" == "pwa:andy" ]] && ok "pwa name -> pwa:name" || bad "pwa name -> pwa:name"
 [[ "$(chat person-key Andy)" == "Andy" ]] && ok "bare name is its own key" || bad "bare name is its own key"
 
-# --- a conversation spread over threads, a DM, and 8 days --------------------
+# --- a conversation spread over routing names and 8 days ----------------------
 : > "$TRAJ"
 header hdr-1
 msg a1 "$ANDY_T1" "$ME"   "how is the bridge work going"   $((8*86400))   # older than 7d
 msg a2 "$ME"      "$ANDY_T1" "half done"                    $((8*86400-60))
 noise n1
 msg a3 "$ANDY_T2" "$ME"   "that svg is not rendering"       7200
-msg a4 "$ME"      "$ANDY_T2" "slack ate it"                 7100
+msg a4 "$ME"      "$ANDY_T2" "that svg is now fixed"        7100
 msg b1 "$BRADEN"  "$ME"   "middle name of washington?"      3600
 msg b2 "$ME"      "$BRADEN" "he had none"                   3500
 msg a5 "$ANDY_DM" "$ME"   "sure!"                           60
@@ -75,20 +75,20 @@ noise n2
 
 out=$(chat history --with "$ANDY_T1" --json)
 n=$(printf '%s' "$out" | jq 'length')
-[[ "$n" == 5 ]] && ok "--with groups two threads and the DM under one person (5 msgs)" || bad "--with groups two threads and the DM under one person" "got $n: $out"
+[[ "$n" == 5 ]] && ok "--with groups routing names under one person (5 msgs)" || bad "--with groups routing names under one person" "got $n: $out"
 if printf '%s' "$out" | jq -e 'map(.step_id) == ["a1","a2","a3","a4","a5"]' >/dev/null; then
     ok "history is in time order, newest last"
 else
     bad "history is in time order, newest last" "$(printf '%s' "$out" | jq -c 'map(.step_id)')"
 fi
 if printf '%s' "$out" | jq -e 'map(.step_id) | index("b1") == null' >/dev/null; then
-    ok "another person in the same thread is excluded"
+    ok "another person's messages are excluded"
 else
-    bad "another person in the same thread is excluded"
+    bad "another person's messages are excluded"
 fi
 n=$(chat history --with "$ANDY_DM" --since 7d --json | jq 'length')
 [[ "$n" == 3 ]] && ok "--since 7d drops the 8 day old exchange" || bad "--since 7d drops the 8 day old exchange" "got $n"
-n=$(chat history --with "slack:U0614H65RN3" -n 2 --json | jq 'length')
+n=$(chat history --with "telegram:8525624593" -n 2 --json | jq 'length')
 [[ "$n" == 2 ]] && ok "-n caps the result; a person key works as --with" || bad "-n caps the result; a person key works as --with" "got $n"
 last=$(chat history --with "$ANDY_T1" -n 1 --json | jq -r '.[0].step_id')
 [[ "$last" == a5 ]] && ok "-n keeps the newest" || bad "-n keeps the newest" "got $last"
@@ -98,29 +98,24 @@ else
     bad "text output renders the messages"
 fi
 
-# --- threads: everyone in one Slack thread ------------------------------------
-# a3/a4 are Andy in thread T2; b1/b2 are Braden in thread T1, which is the same
-# thread as Andy's a1/a2 (both use thread ts 1787508187.726149).
-[[ "$(chat thread-key "$ANDY_T1")" == "slack-thread:C0BMVH6LM4K-1787508187.726149" ]] && ok "slack thread name -> thread key" || bad "slack thread name -> thread key" "got $(chat thread-key "$ANDY_T1")"
-[[ -z "$(chat thread-key "$ANDY_DM")" && -z "$(chat thread-key pwa-andy)" ]] && ok "DMs and the phone chat have no thread key" || bad "DMs and the phone chat have no thread key"
+# --- threads: no transport produces channel threads ----------------------------
+# thread-key is always empty: nothing groups a multi-speaker thread anymore, so
+# --thread has nothing to add on top of the person's own history.
+[[ -z "$(chat thread-key "$ANDY_T1")" && -z "$(chat thread-key "$ANDY_DM")" \
+  && -z "$(chat thread-key pwa-andy)" && -z "$(chat thread-key "$BRADEN")" ]] \
+    && ok "no routing name has a thread key" \
+    || bad "no routing name has a thread key"
 out=$(chat history --thread "$BRADEN" --json)
-if printf '%s' "$out" | jq -e 'map(.step_id) == ["a1","a2","b1","b2"]' >/dev/null; then
-    ok "--thread returns everyone's messages in that thread, in order"
+n=$(printf '%s' "$out" | jq 'length')
+[[ "$n" == 0 ]] && ok "--thread alone returns nothing without a thread key" || bad "--thread alone returns nothing without a thread key" "got $n"
+out=$(chat history --with "$ANDY_T1" --thread "$ANDY_T1" --json)
+if printf '%s' "$out" | jq -e 'map(.step_id) == ["a1","a2","a3","a4","a5"]' >/dev/null; then
+    ok "--with plus --thread is still just the person's history"
 else
-    bad "--thread returns everyone's messages in that thread" "$(printf '%s' "$out" | jq -c 'map(.step_id)')"
-fi
-n=$(chat history --thread "$BRADEN" --since 1d --json | jq 'length')
-[[ "$n" == 2 ]] && ok "--thread --since bounds the thread window" || bad "--thread --since bounds the thread window" "got $n"
-out=$(chat history --with "$BRADEN" --thread "$BRADEN" --json)
-if printf '%s' "$out" | jq -e 'map(.step_id) == ["a1","a2","b1","b2"]' >/dev/null; then
-    ok "--with plus --thread is the de-duplicated union"
-else
-    bad "--with plus --thread is the de-duplicated union" "$(printf '%s' "$out" | jq -c 'map(.step_id)')"
+    bad "--with plus --thread is still just the person's history" "$(printf '%s' "$out" | jq -c 'map(.step_id)')"
 fi
 n=$(chat history --thread "$ANDY_DM" --json | jq 'length')
 [[ "$n" == 0 ]] && ok "--thread on a DM name returns nothing" || bad "--thread on a DM name returns nothing" "got $n"
-n=$(chat history --thread "slack-thread:C0BMVH6LM4K-1787508187.726149" -n 1 --json | jq 'length')
-[[ "$n" == 1 ]] && ok "a thread key works as --thread" || bad "a thread key works as --thread" "got $n"
 
 # --- the index itself -------------------------------------------------------
 [[ -f "$IDX" ]] && ok "index created next to the trajectory" || bad "index created next to the trajectory"
@@ -161,12 +156,12 @@ read -r off hdr _ < "$IDX.offset"   # offset, header, then inode and size (2026-
 [[ "$n" == 1 && "$hdr" == hdr-2 && "$(wc -l < "$IDX" | tr -d ' ')" == 1 ]] && ok "a replaced trajectory rebuilds the index" || bad "a replaced trajectory rebuilds the index" "n=$n hdr=$hdr lines=$(wc -l < "$IDX")"
 
 # --- aliases via a person memory ---------------------------------------------
-msg z2 "$ANDY_DM" "$ME" "and from slack" 20
+msg z2 "$ANDY_DM" "$ME" "and from telegram" 20
 cat > "$ID/memories/2026-09-02-00-00-00_abcd1234_andy.md" <<'MEM'
 ---
 id: abcd1234
 type: person
-person_key: slack:U0614H65RN3
+person_key: telegram:8525624593
 aliases: [pwa:andy, Andy]
 summary: Andy, co-founder
 ---
@@ -175,19 +170,9 @@ MEM
 n=$(chat history --with pwa-andy --json | jq 'length')
 [[ "$n" == 2 ]] && ok "aliases in a person memory merge channels (asked via pwa name)" || bad "aliases merge channels (asked via pwa name)" "got $n"
 n=$(chat history --with "$ANDY_T2" --json | jq 'length')
-[[ "$n" == 2 ]] && ok "aliases merge channels (asked via slack name)" || bad "aliases merge channels (asked via slack name)" "got $n"
+[[ "$n" == 2 ]] && ok "aliases merge channels (asked via another routing name)" || bad "aliases merge channels (asked via another routing name)" "got $n"
 n=$(chat history --with Braden --json | jq 'length')
 [[ "$n" == 0 ]] && ok "an unrelated name gets nothing" || bad "an unrelated name gets nothing" "got $n"
-
-# --- source links ------------------------------------------------------------
-SOURCE_URL="https://laudesters.slack.com/archives/D0BNW58GP5W/p1788451200123456"
-chat send --from "$ANDY_DM" --to "$ME" --source-url "$SOURCE_URL" "linked message" 2>/dev/null
-if tail -n 1 "$TRAJ" | jq -e --arg url "$SOURCE_URL" \
-    '.type == "message" and .content == "linked message" and .source_url == $url' >/dev/null; then
-    ok "chat send keeps an optional source URL on the message step"
-else
-    bad "chat send keeps an optional source URL on the message step"
-fi
 
 # Message content travels through stdin, not an argv string. Linux rejects a
 # single argument above 128 KiB, so these checks guard both write paths.

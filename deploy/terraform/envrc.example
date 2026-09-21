@@ -30,9 +30,9 @@ export AWS_SECRET_ACCESS_KEY="$(op read 'op://Private/aws-terraform/credential')
 # keys (or `aws configure export-credentials`) are the reliable path.
 
 # --- Google OAuth client secret for the dash SSO IdP (optional) ------------
-# Only needed when google_oauth_client_id is set in tfvars. Same client as
-# the slack stack works (the redirect URI is per Cloudflare team, not per
-# app). Store once:
+# Only needed when google_oauth_client_id is set in tfvars. The same client
+# redirects against the Cloudflare team your domain uses (per-team, not per
+# app), so one client covers every box. Store once:
 #   op item create --category=apiCredential --vault=Private \
 #       --title=shellm-dash-google-sso credential=<paste-client-secret>
 #export TF_VAR_google_oauth_client_secret="$(op read 'op://Private/shellm-dash-google-sso/credential')"

@@ -39,7 +39,7 @@ IMPORTANT: if I use `chat send` it sends a message to myself, so I must NEVER us
     chat sent [--since 24h] [-n N] [--json]  # what I sent, newest first, with what the bridge reported back
 
 `--with` groups a person across every name a bridge has used for them (a
-Slack user's DM and every channel thread, a phone chat name), so it is the
+Telegram username, a phone chat name), so it is the
 way to check what someone and I said before, even days ago. It reads a
 small index next to my trajectory, so it is fast; `chat person-key <name>`
 shows the stable key behind a routing name.
@@ -48,7 +48,7 @@ shows the stable key behind a routing name.
 
 `chat sent` is my sent folder. Each line is one outbound message with its
 delivery state: `delivered`, `failed (reason)` when the bridge could not
-post it, `pending` when a Slack or Telegram bridge has not confirmed it
+post it, `pending` when a Telegram bridge has not confirmed it
 yet, or `unconfirmed` for a transport that never reports back (the phone
 chat). My wake prompt shows the last day of it. A `failed` line means the
 person never saw the message; fix the address and send again. `chat send`

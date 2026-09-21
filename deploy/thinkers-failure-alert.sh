@@ -10,9 +10,9 @@ set -euo pipefail
 #
 # Usage: thinkers-failure-alert.sh APP_DIR IDENTITY
 #
-# Config (APP_DIR/.env): SLACK_BOT_TOKEN (already present for the bridge)
-# and HEADLONG_ALERT_CHANNEL (legacy SHELLM_ALERT_CHANNEL) — the channel ID to post to (e.g. #shellm-bot's
-# ID; the bot must be a member). Missing config degrades to a line in
+# Config (APP_DIR/.env): HEADLONG_ALERT_URL — the webhook to POST the alert
+# to (HEADLONG_ALERT_TOKEN is sent as a Bearer header when set). Missing
+# config degrades to a line in
 # /var/tmp/headlong-thinkers-alert.log, never a unit failure: the alert path
 # must not add its own failure mode on top of a dead mind.
 
@@ -33,38 +33,34 @@ fi
 
 # Framework var: HEADLONG_ first, legacy SHELLM_ fallback (the box .env still
 # carries the old name until it is rewritten).
-ALERT_CHANNEL="${HEADLONG_ALERT_CHANNEL:-${SHELLM_ALERT_CHANNEL:-}}"
-# Posting token: HEADLONG_ALERT_TOKEN (seeded by deploy/split-bridge-env.sh;
-# ideally a dedicated alert-only app). The bridge's own token is in
-# .env.bridge, which this script cannot read inside the thinkers sandbox.
-ALERT_TOKEN="${HEADLONG_ALERT_TOKEN:-${SLACK_BOT_TOKEN:-}}"
+ALERT_URL="${HEADLONG_ALERT_URL:-${SHELLM_ALERT_URL:-}}"
+ALERT_TOKEN="${HEADLONG_ALERT_TOKEN:-${SHELLM_ALERT_TOKEN:-}}"
 
 unit="headlong-thinkers@${IDENT}.service"
 info=$(systemctl show "$unit" \
     -p Result,ExecMainStatus,ExecMainExitTimestampMonotonic,ExecMainExitTimestamp 2>/dev/null || true)
 log_tail=$(tail -n 8 "$APP_DIR/.identities/$IDENT/run/logs/dispatcher.log" 2>/dev/null || true)
 
-text=":rotating_light: *${unit} failed and auto-restart GAVE UP* — the ${IDENT} dispatcher died repeatedly (start limit: 3 unclean deaths in 15 min) and is STAYING DOWN.
-\`\`\`
+text="${unit} FAILED and auto-restart GAVE UP — the ${IDENT} dispatcher died repeatedly (start limit: 3 unclean deaths in 15 min) and is STAYING DOWN.
+---
 ${info}
 --- dispatcher.log tail ---
 ${log_tail}
-\`\`\`
+---
 Investigate first, then restart: \`sudo headlong-thinkersctl start ${IDENT}\` on the box."
 
-if [[ -z "$ALERT_TOKEN" || -z "$ALERT_CHANNEL" ]]; then
-    printf '%s [thinkers-alert] %s failed; Slack not configured (need HEADLONG_ALERT_TOKEN + HEADLONG_ALERT_CHANNEL in %s/.env)\n' \
+if [[ -z "$ALERT_URL" ]]; then
+    printf '%s [thinkers-alert] %s failed; alert webhook not configured (need HEADLONG_ALERT_URL in %s/.env)\n' \
         "$(date -u +%FT%TZ)" "$unit" "$APP_DIR" >> "$FALLBACK_LOG"
     exit 0
 fi
 
-payload=$(jq -nc --arg ch "$ALERT_CHANNEL" --arg text "$text" \
-    '{channel: $ch, text: $text}')
-resp=$(curl -sS -m 15 -X POST https://slack.com/api/chat.postMessage \
-    -H "Authorization: Bearer $ALERT_TOKEN" \
-    -H "Content-Type: application/json; charset=utf-8" \
-    --data "$payload" 2>&1 || true)
-if ! printf '%s' "$resp" | jq -e '.ok == true' >/dev/null 2>&1; then
-    printf '%s [thinkers-alert] Slack post for %s failed: %s\n' \
+payload=$(jq -nc --arg text "$text" '{text: $text}')
+headers=(-H "Content-Type: application/json; charset=utf-8")
+[[ -n "$ALERT_TOKEN" ]] && headers+=(-H "Authorization: Bearer $ALERT_TOKEN")
+resp=$(curl -sS -m 15 -X POST "$ALERT_URL" \
+    "${headers[@]}" --data "$payload" 2>&1 || true)
+if [[ -n "$resp" && "$resp" != "ok" && "$resp" != '{"ok":true}' ]]; then
+    printf '%s [thinkers-alert] alert post for %s failed: %s\n' \
         "$(date -u +%FT%TZ)" "$unit" "$resp" >> "$FALLBACK_LOG"
 fi

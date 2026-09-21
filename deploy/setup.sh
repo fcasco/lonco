@@ -147,23 +147,6 @@ install -o root -g root -m 0640 "$SCRIPT_DIR/audit-headlong-signals.rules" \
     /etc/audit/rules.d/headlong-signals.rules
 augenrules --load || echo "WARN: augenrules --load failed — audit rules apply after next reboot" >&2
 
-# Optional component: the Slack bridge (persona bootstrap + Socket Mode
-# client). Off by default — core deploys are unaffected unless the flag is
-# set (the terraform-slack stack sets it in user_data).
-if [[ "${SHELLM_INSTALL_SLACK_BRIDGE:-0}" == "1" ]]; then
-    echo "==> Installing Slack bridge (SHELLM_INSTALL_SLACK_BRIDGE=1)"
-    sudo -u "$SHELLM_USER" bash -c "
-        export PATH=\"\$HOME/.local/bin:\$PATH\"
-        cd '$APP_DIR/slack' && uv sync
-    "
-    for unit in headlong-slack-agent headlong-slack-bridge; do
-        sed "s|@SHELLM_HOME@|$SHELLM_HOME|g" "$SCRIPT_DIR/$unit.service" \
-            > "/etc/systemd/system/$unit.service"
-    done
-    systemctl daemon-reload
-    systemctl enable --now headlong-slack-agent headlong-slack-bridge
-fi
-
 echo
 echo "Done. headlong-web is running on 127.0.0.1:8080 (not publicly reachable)."
 echo

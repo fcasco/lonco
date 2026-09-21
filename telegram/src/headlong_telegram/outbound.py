@@ -58,7 +58,7 @@ class RecentPosts:
 
 
 # --- delivery notices -------------------------------------------------------
-# Copied from headlong_slack.outbound (the bridges are independent uv
+# Copied from the shellm bridge lineage (the bridges are independent uv
 # projects) — keep the step shape in sync. See design/outbound_delivery.md.
 
 def _append_step_via_traj(serve_root: Path, traj_path: Path, step: dict[str, Any]) -> None:
@@ -158,7 +158,8 @@ def run(cfg: Config, bot: Bot, allowlist: Allowlist, stop_event: threading.Event
             continue
         conv = naming.decode(to)
         if "reaction" in step:
-            # Slack-only: a chat-react step must not become a Telegram message.
+            # reaction steps are chat-client surface, not message text —
+            # Telegram has no reactions API here, so they never send.
             continue
         if not allowlist.is_approved(conv.user):
             log.warning("dropping reply to unapproved user %s", conv.user)

@@ -33,12 +33,12 @@ def health_root(tmp_path: Path) -> Path:
     steps = [
         {"type": "trajectory", "step_id": ROOT_TRAJ, "ts": "t0"},
         # out of the 7-day window: must not count as undecided
-        {"type": "message", "step_id": "m0", "from": "slack-U0-D0", "to": "hl",
+        {"type": "message", "step_id": "m0", "from": "pwa-adam", "to": "hl",
          "content": "ancient", "ts": _ts(8 * 86400)},
         # replied after 60s
-        {"type": "message", "step_id": "m1", "from": "slack-U1-D1", "to": "hl",
+        {"type": "message", "step_id": "m1", "from": "pwa-bree", "to": "hl",
          "content": "hi", "ts": _ts(3600)},
-        {"type": "message", "step_id": "r1", "from": "hl", "to": "slack-U1-D1",
+        {"type": "message", "step_id": "r1", "from": "hl", "to": "pwa-bree",
          "content": "hello!", "reply_to": "m1", "ts": _ts(3540)},
         # declined after 10s
         {"type": "message", "step_id": "m2", "from": "pwa-nick", "to": "hl",
@@ -46,9 +46,9 @@ def health_root(tmp_path: Path) -> Path:
         {"type": "observation", "step_id": "o2", "trigger_step": "m2",
          "decision": "no-reply", "content": "Chose not to reply", "ts": _ts(1790)},
         # replied after 300s
-        {"type": "message", "step_id": "m3", "from": "slack-U1-D1", "to": "hl",
+        {"type": "message", "step_id": "m3", "from": "pwa-bree", "to": "hl",
          "content": "and this?", "ts": _ts(900)},
-        {"type": "message", "step_id": "r3", "from": "hl", "to": "slack-U1-D1",
+        {"type": "message", "step_id": "r3", "from": "hl", "to": "pwa-bree",
          "content": "this too", "reply_to": "m3", "ts": _ts(600)},
         # still undecided
         {"type": "message", "step_id": "m4", "from": "pwa-nick", "to": "hl",
@@ -59,7 +59,7 @@ def health_root(tmp_path: Path) -> Path:
         # mid-run injection chain: message queues behind a busy run, the
         # dispatcher writes the note, the in-flight call finishes 30s later
         # (run append), and the run replies inline 45s after that.
-        {"type": "message", "step_id": "m5", "from": "slack-U2-D2", "to": "hl",
+        {"type": "message", "step_id": "m5", "from": "pwa-cara", "to": "hl",
          "content": "quick q", "ts": _ts(500)},
         {"type": "feedback", "step_id": "f5", "source": "dispatcher",
          "trigger_step": "m5", "content": "a message arrived", "ts": _ts(499.8)},
@@ -68,7 +68,7 @@ def health_root(tmp_path: Path) -> Path:
          "ts": _ts(470)},
         {"type": "shell-output", "step_id": "b5o", "run_id": "run-1",
          "exec_s": 2, "ts": _ts(469)},
-        {"type": "message", "step_id": "r5", "from": "hl", "to": "slack-U2-D2",
+        {"type": "message", "step_id": "r5", "from": "hl", "to": "pwa-cara",
          "content": "10", "reply_to": "m5", "run_id": "run-1", "ts": _ts(425)},
     ]
     (traj_dir / "trajectory.jsonl").write_text(
@@ -98,7 +98,7 @@ def test_response_stats(health_root: Path):
         "replied", "replied", "declined", "replied"
     ]
     assert recent[1].get("path") == "fast"  # r3 has no run_id
-    assert recent[0]["from"] == "slack-U2-D2"
+    assert recent[0]["from"] == "pwa-cara"
     assert recent[0]["path"] == "inline"  # r5 carries run_id
 
     # path split: two fast replies (60s, 300s), one inline (75s)
@@ -109,7 +109,7 @@ def test_response_stats(health_root: Path):
     # injection chain decomposition for m5
     inj = stats["injections"]
     assert len(inj) == 1
-    assert inj[0]["from"] == "slack-U2-D2"
+    assert inj[0]["from"] == "pwa-cara"
     assert inj[0]["path"] == "inline"
     assert inj[0]["inject_ms"] == pytest.approx(200, abs=150)
     assert inj[0]["wait_s"] == pytest.approx(30, abs=5)

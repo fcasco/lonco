@@ -14,6 +14,6 @@ filtered by a name substring, e.g. `tests/run-all.sh recap`).
 and `curl | bash`) inside throwaway HOME directories.
 
 CI (`.github/workflows/ci.yml`) runs both of these on every push to main
-and every pull request, alongside the pytest suites in `web/`, `slack/`,
-and `telegram/`, the viewer tests/typecheck/build, `cargo check` for the TUI,
+and every pull request, alongside the pytest suites in `web/` and `telegram/`,
+the viewer tests/typecheck/build, `cargo check` for the TUI,
 and shellcheck at error level.

@@ -263,7 +263,7 @@ act=$(jq -c 'select(.type=="action" and .source=="responder" and .trigger_step==
 [[ -n "$act" && "$(printf '%s' "$act" | jq -r .request)" == "read the box status and report it" ]] && ok "a DEFER on a later line still appends the action" || bad "a DEFER on a later line still appends the action" "got '$act'"
 
 # --- 8. holding text glued in FRONT of the DEFER on one line, then repeated
-#        (Nemotron, 2026-09-15 23:58Z: the whole line went to Slack) --------
+#        (Nemotron, 2026-09-15 23:58Z: the whole line went out raw) -----------
 printf '{"step_id":"trig-7","type":"message","from":"%s","to":"%s","content":"how do goals reach your wake prompt?","ts":"%s","source":"chat"}\n' "$THEM" "$ME" "$(now)" >> "$TRAJ"
 printf 'Let me look into the shellm architecture.DEFER: Investigate how goals are injected into the wake prompt\nLet me look into the shellm architecture.\n' > "$STUB_REPLY_FILE"
 run_responder "$(grep -F '"step_id":"trig-7"' "$TRAJ")"
@@ -332,11 +332,11 @@ sent=$(jq -r 'select(.type=="message" and .from=="testid" and .reply_to=="trig-1
 
 # --- 15. a model that ignored the format falls into the text parser ---------
 printf '{"step_id":"trig-14","type":"message","from":"%s","to":"%s","content":"check the bridge","ts":"%s","source":"chat"}\n' "$THEM" "$ME" "$(now)" >> "$TRAJ"
-printf 'DEFER: check the slack bridge status\nOn it, back shortly.\n' > "$STUB_REPLY_FILE"
+printf 'DEFER: check the telegram bridge status\nOn it, back shortly.\n' > "$STUB_REPLY_FILE"
 run_responder_s "$(grep -F '"step_id":"trig-14"' "$TRAJ")"
 sent=$(jq -r 'select(.type=="message" and .from=="testid" and .reply_to=="trig-14") | .content' "$TRAJ" | tail -1)
 act=$(jq -c 'select(.type=="action" and .source=="responder" and .trigger_step=="trig-14")' "$TRAJ" | tail -1)
-[[ "$sent" == "On it, back shortly." && "$(printf '%s' "$act" | jq -r .request)" == "check the slack bridge status" ]] && ok "structured: non-JSON output still goes through the DEFER parser" || bad "structured: non-JSON output still goes through the DEFER parser" "sent='$sent' act='$act'"
+[[ "$sent" == "On it, back shortly." && "$(printf '%s' "$act" | jq -r .request)" == "check the telegram bridge status" ]] && ok "structured: non-JSON output still goes through the DEFER parser" || bad "structured: non-JSON output still goes through the DEFER parser" "sent='$sent' act='$act'"
 
 # --- 16. a provider that refuses the schema: one retry as text ---------------
 printf '{"step_id":"trig-15","type":"message","from":"%s","to":"%s","content":"you there?","ts":"%s","source":"chat"}\n' "$THEM" "$ME" "$(now)" >> "$TRAJ"

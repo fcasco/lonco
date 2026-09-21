@@ -33,7 +33,7 @@ THINKERS_WATCHDOG_SECS="${THINKERS_WATCHDOG_SECS:-300}"
 # away) still passes: it is newer than anything dispatched before it.
 # 2026-09-12: a script rewrote Audel's trajectory with `grep -v > tmp && mv`;
 # `tail -F` follows by name, so it re-read the 1.5 GB history from line 1,
-# twice, and the responder answered month-old Slack threads for 22 hours.
+# twice, and the responder answered month-old threads for 22 hours.
 # 0 disables.
 THINKERS_REWIND_TOLERANCE="${THINKERS_REWIND_TOLERANCE:-600}"
 # Stuck-step guard. A step whose shellm run has written its final step is
@@ -153,7 +153,7 @@ debug() {
 #      cgroups — the only unit whose main process is the dispatcher, so
 #      the only cgroup where a stop triggers the sweep. A dispatcher merely
 #      HOSTED in another unit's cgroup (dash debug start inside
-#      headlong-web, legacy bootstrap inside headlong-slack-agent) is not that
+#      headlong-web) is not that
 #      unit's main process: same-cgroup callers there survive the stop,
 #      and refusing them would leave the dash unable to stop its own
 #      debug-path dispatcher.

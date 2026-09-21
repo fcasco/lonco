@@ -9,7 +9,7 @@
 # trajectory.jsonl` on a live identity. The feeder is `tail -F`, which follows
 # by name, so GNU tail reopened the new file and streamed the whole history
 # through the dispatcher as if freshly appended; the responder answered
-# month-old Slack threads for 22 hours. Two guards now cover this:
+# month-old replayed messages for 22 hours. Two guards now cover this:
 #   - the housekeeping tick notices a feeder whose file changed inode or
 #     shrank, kills it, and respawns it at end of file;
 #   - the dispatch loop skips any step older than the newest dispatched step

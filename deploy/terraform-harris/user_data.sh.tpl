@@ -1,1 +1,0 @@
-../terraform-slack/user_data.sh.tpl

@@ -21,7 +21,7 @@ log = logging.getLogger("headlong-web.push")
 STORE_DIR = ".web-push"
 VAPID_PEM = "vapid_private.pem"
 SUBSCRIPTIONS = "subscriptions.json"
-# Only the phone client's namespace is subscribable; slack-* stays Slack's.
+# Only the phone client's namespace is subscribable.
 SUBSCRIBABLE_PREFIX = "pwa-"
 BODY_LIMIT = 160
 

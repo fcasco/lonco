@@ -1,12 +1,11 @@
 # Security posture of the chat integrations
 
 This doc summarizes how each way of talking to a Headlong identity is
-secured. It covers the Slack bridge (`slack/`), the phone chat PWA
-(`web/`, served behind Cloudflare Access), and the Telegram bridge
-(`telegram/`). Read
+secured. It covers the phone chat PWA (`web/`, served behind Cloudflare
+Access) and the Telegram bridge (`telegram/`). Read
 this before widening access to any of them.
 
-## What all three share
+## What both share
 
 The identity is an agent that runs arbitrary bash on its box with its
 API keys, and every message a person sends goes straight into the
@@ -14,8 +13,8 @@ agent's context. Prompt injection is therefore always possible, from any
 channel, and the defenses are the same everywhere:
 
 - The box is dedicated and burnable, with zero inbound network access.
-  All three integrations dial out (a Socket Mode websocket, a Cloudflare
-  tunnel, and Telegram long polling), so nothing listens.
+  Both integrations dial out (a Cloudflare tunnel, and Telegram long
+  polling), so nothing listens.
 - The LLM key is dedicated to the box and spend capped.
 - The box holds only the secrets it needs, because it allows all
   outbound traffic and an injected agent could send those secrets out.
@@ -23,15 +22,14 @@ channel, and the defenses are the same everywhere:
   identity may surface in replies to anyone else, on any channel. Do
   not tell it secrets you would not post in a public channel.
 
-Each channel is one message namespace in the mind log (`slack-*`,
-`pwa-*`, `telegram-*`). Each bridge only forwards replies addressed to
+Each channel is one message namespace in the mind log (`pwa-*`,
+`telegram-*`). Each bridge only forwards replies addressed to
 its own namespace, so the channels cannot leak into each other's
 transport, though the shared mind means content can still cross.
 
 Each bridge has a kill switch that mutes the channel without touching
-the agent. For Slack it is `systemctl stop headlong-slack-bridge`, for the
-phone chat it is disabling the Cloudflare Access app, and for Telegram
-it is `systemctl stop headlong-telegram-bridge`.
+the agent. For the phone chat it is disabling the Cloudflare Access
+app, and for Telegram it is `systemctl stop headlong-telegram-bridge`.
 
 ## Runtime sandbox and the bridge tokens
 
@@ -51,35 +49,10 @@ namespace, not checks in the tools. The mind keeps full sovereignty
 over its own identity directory; contributions to the runtime go
 through its clone and pull requests.
 
-The Slack bridge's tokens live in `.env.bridge`, loaded by
-`headlong-slack-bridge.service` only and marked inaccessible in the
-sandbox, so a wake cannot read them (`deploy/split-bridge-env.sh` moves
-them there; the box user data and `update.sh` run it, so a rebuild or a
-re-pushed `.env` lands in the same place). Telegram already had this
-shape: its token is root-owned in `/etc/shellm/telegram.env` and the
-bridge runs as a separate user. The box alert scripts post with
-`HEADLONG_ALERT_TOKEN` from the root `.env`; the split seeds it as a
-copy of the bot token so alerts keep working, and the split is only
-complete once that is replaced with a token from a dedicated alert-only
-app. Until then a wake that reads `.env` still holds a token that can
-post as the bot, but not the app token that opens the Socket Mode
-connection.
-
-## Slack
-
-Who can talk to the identity. Anyone in the Slack workspace the app is
-installed in, by DM or by mention. Workspace membership is the only gate, and the
-bridge does not have its own allowlist.
-
-How it connects. The bridge holds two long-lived Slack tokens and opens
-an outbound Socket Mode websocket. The tokens live in the box's root
-`.env`, which comes from an SSM parameter and survives rebuilds.
-
-Known gaps. The root `.env` is readable by the `shellm` user, which is
-the user the agent runs as, so an injected agent can read the Slack
-tokens and post as the bot anywhere the bot is installed. The Telegram
-bridge avoids the same gap by design (see below), and moving the Slack
-tokens out of the shared `.env` the same way would close it.
+The Telegram bridge runs as its own user with its token in a root-owned
+file (see below), so a wake cannot read it. The box alert scripts post
+with `HEADLONG_ALERT_TOKEN` from the root `.env`, which the identity's
+user can read — keep that a token with alert-only rights.
 
 ## Phone chat PWA
 
@@ -93,7 +66,7 @@ install.
 
 How it connects. The box reaches Cloudflare through an outbound tunnel.
 Messages arrive over the same web API the bridges use, under `pwa-*`
-sender names that the Slack bridge never forwards.
+sender names that no outbound bridge forwards.
 
 Push notifications. The push subscription store and the VAPID keys live
 on the box, and only `pwa-*` names can subscribe. The keys die with the
@@ -142,12 +115,12 @@ should have Telegram access of its own, use a separate bot and token.
 
 ## Comparison
 
-| | Slack | Phone chat PWA | Telegram |
-|---|---|---|---|
-| Gate | Workspace membership | Cloudflare Access (SSO) | Bridge allowlist |
-| Who holds the gate | Slack admins | Cloudflare config | Admin over Telegram |
-| Secrets on box | Bot + app tokens | VAPID keys | Bot token |
-| Agent can read them | Yes (shared `.env`) | Yes (push files) | No (root-owned env, separate user) |
-| Outbound reply check | None | Not needed (pull) | Allowlist |
-| Survives rebuild | Yes (SSM parameter) | Keys regenerate | No (recreate env file) |
-| Kill switch | Stop bridge unit | Disable Access app | Stop bridge unit |
+| | Phone chat PWA | Telegram |
+|---|---|---|
+| Gate | Cloudflare Access (SSO) | Bridge allowlist |
+| Who holds the gate | Cloudflare config | Admin over Telegram |
+| Secrets on box | VAPID keys | Bot token |
+| Agent can read them | Yes (push files) | No (root-owned env, separate user) |
+| Outbound reply check | Not needed (pull) | Allowlist |
+| Survives rebuild | Keys regenerate | No (recreate env file) |
+| Kill switch | Disable Access app | Stop bridge unit |

@@ -2,7 +2,8 @@
 # deploy/setup.sh (re-synced by deploy/update.sh), which substitutes
 # @SHELLM_HOME@. Driven by headlong-thinkers-silence@<identity>.timer.
 #
-# Posts to Slack when the identity's dispatcher is up but its trajectory has
+# Posts to the alert webhook (HEADLONG_ALERT_URL in .env) when the identity's
+# dispatcher is up but its trajectory has
 # not grown for HEADLONG_SILENCE_SECS (default 30 min), and again when steps
 # resume. The death/failure alerts cover a dispatcher that dies; this covers
 # one that is alive and doing nothing (2026-09-14: six silent hours behind

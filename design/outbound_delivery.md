@@ -1,18 +1,18 @@
 # Outbound delivery: deliverable addresses, delivery notices, and a sent ledger
 
-Status: Delivery 1 COMMITTED 2026-09-09 (address grammar, Slack notices,
-chat validation). Delivery 2 BUILT the same day, tests green, pending commit
-and deploy: `chat sent` over a `deliveries.jsonl` index (`bin/chat`), the
-"Sent in the last 24h" wake prompt section (`_outbound_section` in
+Status: shipped. The transport-neutral delivery notice, the `chat sent`
+ledger over a `deliveries.jsonl` index (`bin/chat`), the "Sent in the
+last 24h" wake prompt section (`_outbound_section` in
 `thinkers/_lib/common.sh`, wired in `thinkers/monolith/step`, rule in
-`prompt.md`), the 24h repeat refusal with `--force` in `chat send` and
-proactive `chat reply`, and Telegram notices
+`prompt.md`), and send-time dedup with `--force` in `chat send` and
+proactive `chat reply` are all built and tested, with the Telegram
+bridge as the transport that writes notices
 (`telegram/src/headlong_telegram/outbound.py`). Tests:
 `tests/test_chat_sent.sh`, `tests/test_monolith_wake_sections.sh`,
 `telegram/tests/test_outbound.py`. The phone chat has no bridge process, so
-its sends show as `unconfirmed` rather than `pending` (see part 7). Deploy
-restarts both bridges through deploy/update.sh; `chat`, `_lib`, and the
-monolith prompt reach Audel through the thinker sync.
+its sends show as `unconfirmed` rather than `delivered` or `failed` (see
+part 7). Deploy restarts the bridge through deploy/update.sh; `chat`,
+`_lib`, and the monolith prompt reach Audel through the thinker sync.
 
 Related: [conversation_memory.md](conversation_memory.md) part 5 is the
 deferral index this design copies. [monolith_thinker.md](monolith_thinker.md)
@@ -30,14 +30,17 @@ that step in the last 20 durable steps of its recent stream.
 
 Both halves failed in the same week.
 
-**Silent drops.** The Slack bridge delivers a message only when its `to`
-parses as `slack-<user>-<channel>[-<thread ts>]`. Any other `slack-` name hits
-a bare `continue` with no log line. Between 2026-09-05 and 2026-09-09 Audel
-addressed 23 of 74 sends to a bare channel id (`slack-C0BMVH6LM4K`) or a bare
-user id (`slack-U0BFD9NDVE3`), including most of the daily papers posts and
-four DMs to Nick. None reached Slack. The bridge journal has zero warnings.
-Audel's own memories from 2026-08-04 and 08-05 describe this exact rule and a
-box-side fix that never reached main.
+**Silent drops.** A transport drops anything whose `to` its own grammar
+does not parse. On 2026-09-05 to 09-09 Audel addressed 23 of 74 sends to
+bare ids the then-live grammar rejected, including most of the daily
+papers posts and four DMs to Nick. None reached anyone, and the bridge
+journal had zero warnings: a malformed `to` hit a bare `continue`. The
+lesson holds for any transport — a name the bridge cannot decode is a
+message that vanishes — and the fix is the same everywhere: a `failed`
+delivery notice instead of silence. Today a `telegram-*` `to` that fails
+`naming.is_telegram_name` gets a `failed` notice naming the reason, and
+`chat sent` shows it. Audel's own memories from 2026-08-04 and 08-05
+describe this exact rule and a box-side fix that never reached main.
 
 **Forgotten sends.** On 2026-09-08 Audel sent the same two papers four times
 between 22:21 and 01:06 UTC. Between the first send and the second run's
@@ -58,56 +61,45 @@ on top. This design applies that shape to outbound messages.
 
 ### 1. Address grammar, in one place
 
-`slack/src/headlong_slack/naming.py` owns the grammar. It accepts:
+`telegram/src/headlong_telegram/naming.py` owns the grammar. It accepts one
+form:
 
 | form | meaning | delivery |
 |------|---------|----------|
-| `slack-<user>-<channel>-<ts>` | a channel thread | reply in thread |
-| `slack-<user>-<channel>` | a DM channel, or a channel with no thread | top-level post in that channel |
-| `slack-C…`, `slack-G…` | a bare channel id | top-level post in the channel |
-| `slack-U…`, `slack-W…` | a bare user id | open the DM with `conversations.open`, post there |
+| `telegram-<user id>-<chat id>` | a DM with that user | `sendMessage` to the chat id |
 
-The two short forms are what the mind writes when it means "post in
-headlong-bot" or "DM Nick"; the bridge now does what was meant. The first
-letter of a Slack id says what it is (U and W are users, C public channels,
-G private channels, D DM channels), which is what makes the two-part forms
-unambiguous.
+The two ids are what the mind writes when it means "DM Nick in Telegram";
+the bridge then does what was meant. The bridge is DM only, so both ids are
+positive integers; group chat ids are negative, and `encode()` refuses them
+outright because their leading minus would break the `-` separator.
 
-`naming.py` exports the grammar as one regular expression string,
-`NAME_RE_TEXT`, written in the subset that both Python `re` and bash ERE
-accept (plain groups, no `(?:`). `bin/chat` carries the same string in a
-variable `_SLACK_NAME_RE` on a marked line. `slack/tests/test_naming.py`
-reads `bin/chat`, extracts that line, and asserts the two strings are equal.
-That test is the mechanism that keeps chat and bridge in sync: a change to
-one without the other fails CI.
+The grammar ships as a function (`naming.is_telegram_name`) in the bridge
+project only. The old design kept transport grammar mirrored by a regex
+copy in `bin/chat`, pinned equal to the bridge's by a cross-file test;
+that copy is gone with the transport it belonged to, so there is no mirror
+between `chat` and the bridge to keep in sync anymore. The bridge is the
+single owner of the grammar and the single checkpoint that turns a bad
+address into a `failed` notice.
 
-### 2. `chat` rejects a malformed Slack target
+### 2. The bridge writes a delivery notice for every send
 
-`chat send`, `chat reply`, `chat send-file`, and `chat react` check any `to`
-that starts with `slack-` against `_SLACK_NAME_RE` before appending, and die
-with a non-zero exit and the accepted forms in the message. Names that do not
-start with `slack-` are untouched, since other transports own them.
-
-### 3. The bridge writes a delivery notice for every send
-
-After handling a `message` step addressed to a `slack-` name, the bridge
-appends one step to the root trajectory:
+After handling a `message` step addressed to a `telegram-*` name, the
+bridge appends one step to the root trajectory:
 
 ```json
-{"type": "delivery", "source": "slack-bridge", "transport": "slack",
- "trigger_step": "<message step_id>", "to": "<the to name>",
- "status": "delivered", "channel": "C0BMVH6LM4K", "message_ts": "1757372480.123456",
- "permalink": "https://…/archives/C0BMVH6LM4K/p1757372480123456",
- "content": "delivered to slack-C0BMVH6LM4K"}
+{"type": "delivery", "source": "telegram-bridge", "transport": "telegram",
+ "trigger_step": "<message step_id>", "to": "telegram-8525624593-8525624593",
+ "status": "delivered", "chat": "8525624593",
+ "content": "delivered to telegram-8525624593-8525624593"}
 ```
 
 or, on failure,
 
 ```json
-{"type": "delivery", "source": "slack-bridge", "transport": "slack",
- "trigger_step": "<message step_id>", "to": "<the to name>",
- "status": "failed", "reason": "unknown slack address form …",
- "content": "not delivered to slack-...: unknown slack address form …"}
+{"type": "delivery", "source": "telegram-bridge", "transport": "telegram",
+ "trigger_step": "<message step_id>", "to": "telegram-bogus",
+ "status": "failed", "reason": "unknown telegram address form; accepted: telegram-<user id>-<chat id>",
+ "content": "not delivered to telegram-bogus: unknown telegram address form; accepted: telegram-<user id>-<chat id>"}
 ```
 
 Rules:
@@ -116,10 +108,16 @@ Rules:
   registry convention. A later reader resolves a send by matching it.
 - The bridge writes the step by running `bin/traj append` on the identity's
   root trajectory, the same lock every other writer uses. It never opens the
-  file for writing itself.
-- A `to` that starts with `slack-` but fails the grammar gets a failed notice
-  and a warning in the journal. A `to` for another transport is skipped as
-  before, silently, because that transport's bridge owns it.
+  file for writing itself. Before spawning traj it checks that the
+  trajectory and its directory are writable, and after one `PermissionError`
+  it disables notices for the run with a single log line — the Telegram
+  bridge runs as a user with read-only access to the log, and its first
+  notices each hung for the full subprocess timeout instead of failing (the
+  2026-09-09 incident below).
+- A `to` that starts with `telegram-` but fails the grammar gets a failed
+  notice (`unknown telegram address form`), as do an unapproved recipient
+  and a group chat. A `to` for another transport is skipped, silently,
+  because that transport's bridge owns it.
 - Text posts and file uploads get notices. Reactions do not; they are not
   sends the mind needs to account for.
 - The notice is keyed on the message step id. A bridge restart that replays
@@ -127,14 +125,13 @@ Rules:
   a duplicate, not a second delivery.
 - The bridge already skips its own steps when following the log, because it
   only acts on `message` steps from the identity with `source: chat`.
-- The permalink comes from `chat.getPermalink` and is best effort. It also
-  gives `chat react --reply-to` a message timestamp for an outbound message,
-  closing the gap where a reaction fell back to the thread root.
-- Slack's `chat.postMessage` response carries `ts`; the notice records it as
-  `message_ts` (`ts` belongs to `traj append`, which stamps every step; the
-  first live notice on 2026-09-09 had the Slack value overwritten).
+- `transport` is the generic axis a reader keys on, `status` is
+  `delivered`, `failed`, or `skipped`, `reason` names the failure, and
+  transport-specific fields (`chat`, `permalink`, `message_ts`, `filename`)
+  ride along where a transport has them. The Telegram bridge puts the
+  numeric chat id in `chat`; it has no permalink concept, so it writes none.
 
-### 4. Who wakes up, and who sees it
+### 3. Who wakes up, and who sees it
 
 The dispatcher wakes thinkers by step type. The monolith subscribes to
 `observation`, `action`, `merge`, and its own wake step; the responder
@@ -159,24 +156,26 @@ because the feedback step carries no run id and run scope keeps only rows
 that do, and its purposes are now covered by the responder and the deferral.
 Retiring it is a separate change.
 
-### 5. The sent ledger (delivery 2)
+### 4. The sent ledger
 
 `chat sent [--since 24h] [--json]` lists the identity's outbound message
 steps with their delivery state, newest first:
 
 ```
-2026-09-08T22:21Z  slack-C0BMVH6LM4K  failed (unknown slack address form)  "Daily Paper — Dr. Claw…"
-2026-09-07T00:02Z  slack-U0BFD9NDVE3-C0BMVH6LM4K  delivered  "Daily papers for 2026-09-07…"
-2026-09-07T04:46Z  slack-U0BFD9NDVE3  pending 2d  "Built a reaction-memory cross-check…"
+2026-09-08T22:21Z  telegram-bogus  failed (unknown telegram address form; accepted: telegram-<user id>-<chat id>)  "Daily Paper — Dr. Claw…"
+2026-09-07T00:02Z  pwa-andy        unconfirmed  "Daily papers for 2026-09-07…"
+2026-09-07T04:46Z  telegram-8525624593-8525624593  delivered  "Built a reaction-memory cross-check…"
 ```
 
 It is built the way `chat pending` is built: a derived index next to the
-trajectory, `sent.jsonl`, maintained in the same incremental pass as
-`messages.jsonl` and `deferrals.jsonl`, holding every outbound message step
-and every `delivery` step. A send is `delivered` or `failed` when a notice
-with its step id exists, and `pending` otherwise. A send that has been
-pending longer than a few minutes means the bridge for that transport is
-down or behind, which nobody can see today.
+trajectory, `deliveries.jsonl`, maintained in the same incremental pass as
+`messages.jsonl` and `deferrals.jsonl`, holding every `delivery` step. The
+join is by `trigger_step`: a send is `delivered`, `failed`, or `skipped`
+when a notice with its step id exists, and `unconfirmed` otherwise — the
+state before a bridge has reported, and the state a transport that never
+reports (the phone chat) is always in. A send that has been `unconfirmed`
+longer than a few minutes means the bridge for that transport is down or
+behind, which nobody could see before.
 
 The monolith's wake prompt gains a short section, rendered from
 `chat sent --since 24h`, one line per send with the destination, the state,
@@ -184,7 +183,7 @@ and the first few words. It is keyed by time, not by step count, so it
 survives any number of idle wakes. It costs a few hundred bytes on a busy
 day and nothing on a quiet one.
 
-### 6. Send-time dedup (delivery 2)
+### 5. Send-time dedup
 
 `chat send` consults the same index and refuses to append a message whose
 content matches one already sent to the same destination in the last 24
@@ -193,12 +192,15 @@ the earlier send and points at `chat sent`. `chat reply` gets the same check
 only when it answers nothing, i.e. no `reply_to` was given or inferred, which
 makes it a proactive send into a conversation. A reply stamped to a specific
 inbound is exempt, because two questions may deserve the same answer and the
-responder must not be blocked from saying "still running" twice in a day.
-The bridge's five-minute dedup stays as a backstop for a replayed step. This
-moves the check the mind failed to make on 2026-09-08 into the tool, so the
-mind does not have to remember to check.
+responder must not be blocked from saying "still running" twice in a day. A
+separate `--key` refusal (`_refuse_key`) names the one duty a send fulfils
+and holds however the text is reworded, past the exact-text check below (on
+2026-09-18 the same papers post went out five times in three hours, reworded
+each time). The bridge's five-minute dedup stays as a backstop for a replayed
+step. This moves the checks the mind failed to make on 2026-09-08 and
+09-18 into the tool, so the mind does not have to remember to check.
 
-### 7. Other transports (delivery 2)
+### 6. Other transports
 
 The Telegram bridge writes the same `delivery` step with `transport:
 telegram` and `source: telegram-bridge`, including failed notices for an
@@ -241,18 +243,18 @@ bridge user, which has read-only access to the trajectory, and traj's lock
 loop spun for the whole subprocess timeout instead of failing. Three
 changes:
 
-- `mindlog.follow` (both bridges) writes `<offset> <trajectory path>` and
-  ignores a cursor for any other trajectory; a shrunk file resumes at its
-  end instead of replaying from zero. A bridge must never replay.
+- `mindlog.follow` writes `<offset> <trajectory path>` and ignores a cursor
+  for any other trajectory; a shrunk file resumes at its end instead of
+  replaying from zero. A bridge must never replay.
 - The notice writer checks that the trajectory and its directory are
   writable before spawning traj, and after one `PermissionError` disables
   notices for the run with a single log line. `bin/traj append` dies at
   once when it cannot create its lock directory.
 - Because the Telegram bridge user cannot write the log by design (it keeps
   the bot token out of the agent's reach), Telegram notices are off on the
-  box and `chat sent` shows Telegram sends as `unconfirmed`, not `pending`.
-  Giving that user append rights on the trajectory, or routing the notice
-  through the web API, would turn them on; neither is decided.
+  box and `chat sent` shows Telegram sends as `unconfirmed` there. Giving
+  that user append rights on the trajectory, or routing the notice through
+  the web API, would turn them on; neither is decided.
 
 ## What this does not do
 
@@ -261,34 +263,30 @@ changes:
 
 ## Rollout
 
-Delivery 1, Slack only, one deploy with a bridge restart (deploy/update.sh
-already restarts the bridge unit):
+The telegram transport was the whole rollout, in one deploy with a bridge
+restart (deploy/update.sh already restarts the bridge unit):
 
-1. `naming.py` grammar and `NAME_RE_TEXT`; tests for the two short forms.
-2. `outbound.py`: resolve bare users through `conversations.open`, post bare
-   channels top-level, write notices, warn on bad addresses; tests with a
-   fake client that returns `ts`.
-3. `bin/chat`: `_SLACK_NAME_RE` and the target check in the four commands;
-   a bash test; the grammar mirror test in `test_naming.py`.
+1. `naming.py` grammar and `is_telegram_name`; tests for the one form.
+2. `outbound.py`: write notices on every send, warn on bad addresses, fail
+   on allowlist and group violations; tests with a fake bot
+   (`telegram/tests/test_outbound.py`).
+3. `bin/chat`: `chat sent` over `deliveries.jsonl`, the `--force` repeat and
+   key refusals; a bash test (`tests/test_chat_sent.sh`).
 4. `_recent_stream`: admit failed notices; a test.
-5. `skills/slack/SKILL.md`: document the short forms.
-6. `design/trajectory_spec.md`: register `delivery`.
+5. `design/trajectory_spec.md`: register `delivery`.
 
-Verification on the box after deploy: send one message to a bare channel id
-and one to a bare user id from an identity shell, confirm both land in Slack,
-confirm two `delivery` steps with `status: delivered` and a permalink, then
-send one to `slack-bogus` and confirm a failed notice and a journal warning.
-
-Delivery 2 (built): `chat sent` over `deliveries.jsonl` (the index file is
-named for what it holds, not `sent.jsonl` as first proposed), the prompt
-section, `--force` dedup, Telegram notices. Verification on the box: after
-the deploy, `chat sent --since 24h` from an identity shell should list the
-day's sends with `delivered` beside the Slack ones and the next wake prompt
-should carry the "Sent in the last 24h" section (check a `prompt` step).
+Verification on the box after deploy: send one message to a real `telegram-*`
+name from an identity shell and confirm it lands in Telegram with a
+`delivery` step carrying `status: delivered`, then send one to a name that
+fails the grammar (say `telegram-bogus`) and confirm a failed notice and a
+journal warning. `chat sent --since 24h` from an identity shell should list
+the day's sends with `delivered` beside the Telegram ones and the next wake
+prompt should carry the "Sent in the last 24h" section (check a `prompt`
+step).
 
 ## Open questions
 
-- Should the ledger's pending threshold be per transport? The Slack bridge
-  polls every 0.4 seconds, so a minute is generous; the phone chat has no
-  bridge and would always be pending until it writes notices.
+- Should the phone chat ever acknowledge deliveries? A `unconfirmed` send
+  cannot be told apart from a bridge outage today except by knowing the
+  transport.
 - Should a failed notice eventually wake the monolith? Off for now.

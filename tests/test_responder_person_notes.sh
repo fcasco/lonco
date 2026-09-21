@@ -31,8 +31,8 @@ WORK=$(mktemp -d)
 trap 'cd /; rm -rf "$WORK"' EXIT
 
 ME=testid
-THEM="slack-U0614H65RN3-C0BMVH6LM4K-1787508187.726149"
-THEM_DM="slack-U0614H65RN3-D0BNW58GP5W"
+THEM="telegram-8525624593-1111111111"
+THEM_DM="telegram-8525624593-2222222222"
 ID="$WORK/ident"
 TRAJ_ID="cafe0000-0000-0000-0000-0000000000f0"
 mkdir -p "$ID/memories" "$ID/trajectories/$TRAJ_ID" "$ID/run"
@@ -77,12 +77,12 @@ printf '{"step_id":"hdr","type":"trajectory","ts":"%s"}\n' "$(now)" >> "$TRAJ"
 # --- 1. first reply creates the notes file --------------------------------
 msg trig-1 "$THEM" "$ME" "hi, I am Andy, I run the lab. keep replies short please"
 printf 'Hi Andy, will do.\n' > "$STUB_REPLY_FILE"
-printf 'Andy runs the lab and reaches testid on Slack.\nPrefers short replies (stated 2026-09-02).\nToken sk-abcdefghijklmnopqrstuvwxyz0123 was pasted once.\n' > "$STUB_NOTES_FILE"
+printf 'Andy runs the lab and reaches testid on Telegram.\nPrefers short replies (stated 2026-09-02).\nToken sk-abcdefghijklmnopqrstuvwxyz0123 was pasted once.\n' > "$STUB_NOTES_FILE"
 run_step "$(grep -F '"step_id":"trig-1"' "$TRAJ")"
 
 [[ "$(person_files)" == 1 ]] && ok "a type: person memory is created after the first reply" || bad "a type: person memory is created after the first reply" "found $(person_files); $(tail -3 "$WORK/step.log")"
 f=$(grep -l '^type: person' "$ID/memories"/*.md | head -1)
-if grep -q '^person_key: slack:U0614H65RN3$' "$f" && grep -q '^aliases: \[\]$' "$f" && grep -q '^id: [0-9a-f]\{8\}$' "$f" && grep -q '^created: ' "$f"; then
+if grep -q '^person_key: telegram:8525624593$' "$f" && grep -q '^aliases: \[\]$' "$f" && grep -q '^id: [0-9a-f]\{8\}$' "$f" && grep -q '^created: ' "$f"; then
     ok "frontmatter has id, person_key, aliases, created in mem's format"
 else
     bad "frontmatter has id, person_key, aliases, created" "$(sed -n 1,8p "$f")"
@@ -109,10 +109,10 @@ sed -i.bak 's/^aliases: \[\]$/aliases: [pwa:andy]/' "$f" && rm -f "$f.bak"
 id_before=$(sed -n 's/^id: //p' "$f"); created_before=$(sed -n 's/^created: //p' "$f")
 msg trig-2 "$THEM_DM" "$ME" "did you see the new PR?"
 printf 'Not yet, looking now.\n' > "$STUB_REPLY_FILE"
-printf 'Andy runs the lab and reaches testid on Slack (threads and DMs).\nPrefers short replies (stated 2026-09-02).\nAsked about a new PR on 2026-09-02; open.\n' > "$STUB_NOTES_FILE"
+printf 'Andy runs the lab and reaches testid on Telegram (routing names and DMs).\nPrefers short replies (stated 2026-09-02).\nAsked about a new PR on 2026-09-02; open.\n' > "$STUB_NOTES_FILE"
 run_step "$(grep -F '"step_id":"trig-2"' "$TRAJ")"
 
-if grep -q 'What you know about slack-U0614H65RN3-D0BNW58GP5W' "$STUB_REPLY_SYS" && grep -q 'Prefers short replies' "$STUB_REPLY_SYS"; then
+if grep -q 'What you know about telegram-8525624593-2222222222' "$STUB_REPLY_SYS" && grep -q 'Prefers short replies' "$STUB_REPLY_SYS"; then
     ok "the reply prompt carries the notes, found via the DM name (same person key)"
 else
     bad "the reply prompt carries the notes, found via the DM name" "$(grep -c 'What you know' "$STUB_REPLY_SYS")"
